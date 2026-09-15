@@ -28,6 +28,7 @@ export default function GameScreen() {
     gameStep,
     selectedTopic,
     lastAnswerCorrect,
+    selectFood,
     selectTopic,
     advanceStep,
     answerQuiz,
@@ -51,14 +52,19 @@ export default function GameScreen() {
   }, [food, navigate]);
 
   useEffect(() => {
-    resetForNextFood();
+    if (!food) return;
+    // Opening /play/<food> directly — a shared link, a refresh, the back button
+    // — never goes through the food picker, so the store never learned which
+    // category was played and the healthy/junk alternation quietly stopped
+    // applying. Recording it here means every route into a food counts.
+    selectFood(food.id, food.category);
     setCut(false);
     setZooming(false);
     setChosenOption(null);
     setWrongChoice(null);
     cutProgressRef.current = 0;
     isCuttingAuto.current = false;
-  }, [resetForNextFood]);
+  }, [food, selectFood]);
 
   if (!food) return null;
 
