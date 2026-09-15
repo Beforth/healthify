@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hand } from 'lucide-react';
 import FoodCanvas from './FoodCanvas';
-import CellView from '../micro/CellView';
+import CellView, { type MicroVariant } from '../micro/CellView';
 import type { MicroSpec } from '../micro/microStructures';
 
 export interface CrossSectionFact {
@@ -58,6 +58,7 @@ export default function CrossSectionShell({ facts, micro, scene }: CrossSectionS
   // Deliberately starts empty. Pre-selecting a fact used to suppress the one line
   // of text that tells a child the thing is interactive at all.
   const [active, setActive] = useState<string | null>(null);
+  const [variant, setVariant] = useState<MicroVariant>('cartoon');
   const activeFact = facts.find((f) => f.id === active) ?? null;
 
   return (
@@ -149,8 +150,37 @@ export default function CrossSectionShell({ facts, micro, scene }: CrossSectionS
             boxSizing: 'border-box',
           }}
         >
-          <PanelTitle>{micro.caption}</PanelTitle>
-          <CellView spec={micro} />
+          <PanelTitle>
+            {variant === 'science' ? micro.sciCaption : micro.caption}
+          </PanelTitle>
+          <CellView spec={micro} variant={variant} />
+
+          {/* Same tissue, two audiences: a child pokes the cells with faces, a
+              grown-up in the room wants to see it look like a real sample. */}
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8 }}>
+            {(['cartoon', 'science'] as MicroVariant[]).map((v) => {
+              const on = variant === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => setVariant(v)}
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: 999,
+                    border: on ? '2px solid #1b6946' : '1.5px solid #d3e9db',
+                    background: on ? '#1b6946' : '#ffffff',
+                    color: on ? '#ffffff' : '#41604f',
+                    fontWeight: 800,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {v === 'cartoon' ? 'Fun view' : 'Science view'}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

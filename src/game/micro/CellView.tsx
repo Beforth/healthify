@@ -2,10 +2,32 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { CellKind, MicroSpec } from './microStructures';
 
+export type MicroVariant = 'cartoon' | 'science';
+
+/**
+ * The science view is monochrome whatever the food, because an electron
+ * microscope has no colour to record — it counts electrons. Bright walls
+ * against near-black voids is the look that reads as a real micrograph.
+ *
+ * It is still a drawing. It is labelled as one on screen, and it must never be
+ * presented as a photograph of an actual sample.
+ */
+const SEM = {
+  bezel: '#242424',
+  field: '#1c1c1c',
+  wall: '#ededed',
+  matrix: ['#8d8d8d', '#7a7a7a'] as [string, string],
+  pocket: '#0a0a0a',
+  vessel: '#a8a8a8',
+  inclusion: '#f4f4f4',
+};
+
 const SIZE = 400;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 const LENS = 176;
+/** Rows for the science view's leader labels, kept clear of the scale bar. */
+const SCI_LABEL_Y = [62, 168, 292];
 
 /** Deterministic RNG so the tissue is identical on every render and reload —
  *  cells that reshuffle on each frame look like static, not like a sample. */
@@ -213,7 +235,71 @@ function Bubble({
   );
 }
 
-export default function CellView({ spec }: { spec: MicroSpec }) {
+/** A straight leader line from a label to the structure it names — the
+ *  convention every annotated micrograph uses. */
+function Callout({
+  text,
+  x,
+  y,
+  anchorLeft,
+  to,
+  selected,
+  dimmed,
+  onClick,
+}: {
+  text: string;
+  x: number;
+  y: number;
+  anchorLeft: boolean;
+  to: [number, number];
+  selected: boolean;
+  dimmed: boolean;
+  onClick: () => void;
+}) {
+  const elbow = anchorLeft ? x + 68 : x - 68;
+  return (
+    <motion.g
+      style={{ cursor: 'pointer' }}
+      onClick={onClick}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: dimmed ? 0.35 : 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <path
+        d={`M ${x} ${y + 6} L ${elbow} ${y + 6} L ${to[0]} ${to[1]}`}
+        stroke={selected ? '#7dd3a0' : '#ffffff'}
+        strokeWidth={selected ? 2 : 1.2}
+        fill="none"
+        opacity={0.85}
+      />
+      <circle cx={to[0]} cy={to[1]} r={selected ? 5 : 3.2} fill={selected ? '#7dd3a0' : '#ffffff'} />
+      <text
+        x={x}
+        y={y}
+        textAnchor={anchorLeft ? 'start' : 'end'}
+        fontSize={11}
+        fontWeight={700}
+        fill="#ffffff"
+        style={{ paintOrder: 'stroke', stroke: '#000000', strokeWidth: 3, strokeLinejoin: 'round' }}
+      >
+        {text}
+      </text>
+    </motion.g>
+  );
+}
+
+export default function CellView({
+  spec: base,
+  variant = 'cartoon',
+}: {
+  spec: MicroSpec;
+  variant?: MicroVariant;
+}) {
+  const science = variant === 'science';
+  // Same tissue, repainted — the anatomy does not change just because the
+  // audience did, and keeping one generator keeps the two views honest about
+  // showing the same thing.
+  const spec = useMemo<MicroSpec>(() => (science ? { ...base, ...SEM } : base), [base, science]);
   const cells = useMemo(() => buildTissue(spec), [spec]);
   const [picked, setPicked] = useState<CellKind | null>(null);
 
@@ -223,6 +309,10 @@ export default function CellView({ spec }: { spec: MicroSpec }) {
         <clipPath id="lens-clip">
           <circle cx={CX} cy={CY} r={LENS} />
         </clipPath>
+        <filter id="sem-grain">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" result="n" />
+          <feColorMatrix in="n" type="saturate" values="0" />
+        </filter>
         <radialGradient id="lens-vignette">
           <stop offset="62%" stopColor="#000000" stopOpacity="0" />
           <stop offset="100%" stopColor="#000000" stopOpacity="0.3" />
@@ -270,11 +360,22 @@ export default function CellView({ spec }: { spec: MicroSpec }) {
                   transition={{ duration: 2.8, repeat: Infinity, delay: (i + gi) * 0.21 }}
                 />
               ))}
-              {c.face && <Face x={c.x} y={c.y} r={spec.cellRadius} ink={spec.faceInk} delay={i * 0.4} />}
+              {c.face && !science && <Face x={c.x} y={c.y} r={spec.cellRadius} ink={spec.faceInk} delay={i * 0.4} />}
             </motion.g>
           );
         })}
 
+        {science && (
+          <rect
+            x={0}
+            y={0}
+            width={SIZE}
+            height={SIZE}
+            filter="url(#sem-grain)"
+            opacity={0.16}
+            style={{ mixBlendMode: 'screen' }}
+          />
+        )}
         <circle cx={CX} cy={CY} r={LENS} fill="url(#lens-vignette)" />
       </g>
 
@@ -288,21 +389,58 @@ export default function CellView({ spec }: { spec: MicroSpec }) {
           fontWeight={800}
           fill="#ffffff"
         >
-          20µm
+          {science ? '10µm' : '20µm'}
         </text>
+        {science && (
+          <text
+            x={CX}
+            y={SIZE - 5}
+            fontSize={10.5}
+            fontWeight={700}
+            fill="#7d9a8a"
+            textAnchor="middle"
+          >
+            Drawn illustration of real structure — not a photograph
+          </text>
+        )}
       </g>
 
-      {spec.labels.map((l) => (
-        <Bubble
-          key={l.id}
-          text={l.text}
-          at={l.at}
-          colour={spec.bezel}
-          selected={picked === l.kind}
-          dimmed={picked !== null && picked !== l.kind}
-          onClick={() => setPicked((p) => (p === l.kind ? null : l.kind))}
-        />
-      ))}
+      {spec.labels.map((l, li) => {
+        if (!science) {
+          return (
+            <Bubble
+              key={l.id}
+              text={l.text}
+              at={l.at}
+              colour={spec.bezel}
+              selected={picked === l.kind}
+              dimmed={picked !== null && picked !== l.kind}
+              onClick={() => setPicked((p) => (p === l.kind ? null : l.kind))}
+            />
+          );
+        }
+        // point the line at a real cell of that kind rather than a guessed spot
+        const target =
+          cells.find(
+            (c) => c.kind === l.kind && Math.hypot(c.x - CX, c.y - CY) < LENS * 0.66,
+          ) ?? cells[0];
+        const left = l.at[0] < CX;
+        const tx = left ? 18 : SIZE - 18;
+        return (
+          <Callout
+            key={l.id}
+            text={l.sciText}
+            x={tx}
+            y={SCI_LABEL_Y[li] ?? l.at[1]}
+            anchorLeft={left}
+            to={[target.x, target.y]}
+            selected={picked === l.kind}
+            dimmed={picked !== null && picked !== l.kind}
+            onClick={() => setPicked((p) => (p === l.kind ? null : l.kind))}
+          />
+        );
+      })}
+
     </svg>
   );
 }

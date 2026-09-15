@@ -15,6 +15,8 @@ export interface MicroLabel {
   id: string;
   /** Kid-voice, read out loud in a speech bubble. */
   text: string;
+  /** The same structure under its proper name, for the science view. */
+  sciText: string;
   kind: CellKind;
   /** Where the bubble sits, in the 400x400 viewBox. */
   at: [number, number];
@@ -43,6 +45,7 @@ export interface MicroSpec {
    *  invisible face, so this cannot be a constant. */
   faceInk: string;
   caption: string;
+  sciCaption: string;
   labels: MicroLabel[];
 }
 
@@ -64,10 +67,11 @@ export const MICRO: Record<string, MicroSpec> = {
     faces: 4,
     faceInk: '#33421f',
     caption: 'Apple flesh, about 400× bigger',
+    sciCaption: 'Malus domestica — fruit parenchyma',
     labels: [
-      { id: 'matrix', text: 'Juicy cells, full of water!', kind: 'matrix', at: [140, 46] },
-      { id: 'pocket', text: 'Air pockets = the crunch!', kind: 'pocket', at: [268, 126] },
-      { id: 'vessel', text: 'Tubes that fed the apple', kind: 'vessel', at: [232, 356] },
+      { id: 'matrix', text: 'Juicy cells, full of water!', sciText: 'Parenchyma Cell Matrix', kind: 'matrix', at: [140, 46] },
+      { id: 'pocket', text: 'Air pockets = the crunch!', sciText: 'Intercellular Air Space', kind: 'pocket', at: [268, 126] },
+      { id: 'vessel', text: 'Tubes that fed the apple', sciText: 'Vascular Bundle', kind: 'vessel', at: [232, 356] },
     ],
   },
   mango: {
@@ -87,10 +91,11 @@ export const MICRO: Record<string, MicroSpec> = {
     faces: 4,
     faceInk: '#6b4a11',
     caption: 'Mango flesh, about 400× bigger',
+    sciCaption: 'Mangifera indica — mesocarp tissue',
     labels: [
-      { id: 'matrix', text: 'Soft cells full of sweet juice', kind: 'matrix', at: [140, 46] },
-      { id: 'inclusion', text: 'Little stores of food', kind: 'inclusion', at: [268, 126] },
-      { id: 'vessel', text: 'Stringy juice tubes', kind: 'vessel', at: [232, 356] },
+      { id: 'matrix', text: 'Soft cells full of sweet juice', sciText: 'Parenchyma Cell Matrix', kind: 'matrix', at: [140, 46] },
+      { id: 'inclusion', text: 'Little stores of food', sciText: 'Amyloplast (Starch)', kind: 'inclusion', at: [268, 126] },
+      { id: 'vessel', text: 'Stringy juice tubes', sciText: 'Fibrovascular Strand', kind: 'vessel', at: [232, 356] },
     ],
   },
   donut: {
@@ -110,10 +115,11 @@ export const MICRO: Record<string, MicroSpec> = {
     faces: 3,
     faceInk: '#7a4f1c',
     caption: 'Donut crumb, about 400× bigger',
+    sciCaption: 'Fried yeast dough — crumb structure',
     labels: [
-      { id: 'pocket', text: 'Air bubbles blown by yeast!', kind: 'pocket', at: [140, 46] },
-      { id: 'matrix', text: 'Stretchy dough web', kind: 'matrix', at: [268, 126] },
-      { id: 'inclusion', text: 'Sugar crystals everywhere', kind: 'inclusion', at: [232, 356] },
+      { id: 'pocket', text: 'Air bubbles blown by yeast!', sciText: 'Gas Cell (CO\u2082 Void)', kind: 'pocket', at: [140, 46] },
+      { id: 'matrix', text: 'Stretchy dough web', sciText: 'Gluten\u2013Starch Matrix', kind: 'matrix', at: [268, 126] },
+      { id: 'inclusion', text: 'Sugar crystals everywhere', sciText: 'Sucrose Crystal', kind: 'inclusion', at: [232, 356] },
     ],
   },
   'chocolate-bar': {
@@ -133,10 +139,11 @@ export const MICRO: Record<string, MicroSpec> = {
     faces: 3,
     faceInk: '#f3e4cf',
     caption: 'Chocolate, about 400× bigger',
+    sciCaption: 'Chocolate — sugar in a fat matrix',
     labels: [
-      { id: 'inclusion', text: 'Sugar crystals, packed tight!', kind: 'inclusion', at: [140, 46] },
-      { id: 'matrix', text: 'Ground-up cocoa bits', kind: 'matrix', at: [268, 126] },
-      { id: 'pocket', text: 'Cocoa butter glues it all', kind: 'pocket', at: [232, 356] },
+      { id: 'inclusion', text: 'Sugar crystals, packed tight!', sciText: 'Sucrose Crystal', kind: 'inclusion', at: [140, 46] },
+      { id: 'matrix', text: 'Ground-up cocoa bits', sciText: 'Cocoa Solid Particle', kind: 'matrix', at: [268, 126] },
+      { id: 'pocket', text: 'Cocoa butter glues it all', sciText: 'Cocoa Butter Phase', kind: 'pocket', at: [232, 356] },
     ],
   },
 };
