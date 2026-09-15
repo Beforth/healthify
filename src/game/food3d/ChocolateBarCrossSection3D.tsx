@@ -2,6 +2,7 @@ import { Candy, Flame, Wheat, Shield } from 'lucide-react';
 import CrossSectionShell, { type CrossSectionFact } from './CrossSectionShell';
 import { ChocolateHalf } from './ChocolateBarModel';
 import Hotspot from './Hotspot';
+import { MICRO } from '../micro/microStructures';
 
 const FACTS: CrossSectionFact[] = [
   {
@@ -77,6 +78,7 @@ export default function ChocolateBarCrossSection3D() {
   return (
     <CrossSectionShell
       facts={FACTS}
+      micro={MICRO['chocolate-bar']}
       scene={(active, select) => <Scene active={active} select={select} />}
     />
   );

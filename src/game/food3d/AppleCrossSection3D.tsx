@@ -2,6 +2,7 @@ import { Apple as AppleIconLucide, Droplet, Sparkles, Sprout } from 'lucide-reac
 import CrossSectionShell, { type CrossSectionFact } from './CrossSectionShell';
 import { AppleHalfGeometry } from './AppleModel';
 import Hotspot from './Hotspot';
+import { MICRO } from '../micro/microStructures';
 
 const FACTS: CrossSectionFact[] = [
   {
@@ -73,6 +74,7 @@ export default function AppleCrossSection3D() {
   return (
     <CrossSectionShell
       facts={FACTS}
+      micro={MICRO['apple']}
       scene={(active, select) => <Scene active={active} select={select} />}
     />
   );

@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hand } from 'lucide-react';
 import FoodCanvas from './FoodCanvas';
+import CellView from '../micro/CellView';
+import type { MicroSpec } from '../micro/microStructures';
 
 export interface CrossSectionFact {
   id: string;
@@ -18,74 +20,138 @@ export interface CrossSectionFact {
 
 interface CrossSectionShellProps {
   facts: CrossSectionFact[];
+  /** The tissue itself, drawn beside the cut model. A microscope screen that
+   *  only shows a cut solid is not really a microscope. */
+  micro: MicroSpec;
   /** Renders the 3D scene. Receives the current selection, plus a setter so the
    *  markers stuck onto the model can change it — tapping the food and tapping a
    *  chip are the same action. */
   scene: (active: string | null, select: (id: string | null) => void) => ReactNode;
 }
 
-export default function CrossSectionShell({ facts, scene }: CrossSectionShellProps) {
+function PanelTitle({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 12,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 2,
+        padding: '5px 14px',
+        borderRadius: 999,
+        background: 'rgba(255,255,255,0.9)',
+        color: 'var(--green-dark)',
+        fontWeight: 800,
+        fontSize: '0.78rem',
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export default function CrossSectionShell({ facts, micro, scene }: CrossSectionShellProps) {
   // Deliberately starts empty. Pre-selecting a fact used to suppress the one line
   // of text that tells a child the thing is interactive at all.
   const [active, setActive] = useState<string | null>(null);
   const activeFact = facts.find((f) => f.id === active) ?? null;
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 740, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: 980, margin: '0 auto' }}>
+      {/* Two halves of one idea: the cut you made, and what that cut looks like
+          close up. They wrap to a single column on a phone. */}
       <div
         style={{
-          position: 'relative',
-          borderRadius: 28,
-          overflow: 'hidden',
-          background: 'radial-gradient(circle, #f4fff7 0%, #e3faec 100%)',
-          boxShadow: '0 14px 40px rgba(0,0,0,0.08)',
-          border: '2px solid rgba(46, 204, 113, 0.22)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 14,
+          justifyContent: 'center',
+          alignItems: 'stretch',
         }}
       >
-        {/* No auto-rotate: the cut face should stay facing the viewer. Controls stay on
-            so they can still spin it by hand. */}
-        <FoodCanvas height={440} width={740} autoRotate={false} controlsEnabled>
-          {scene(active, setActive)}
-        </FoodCanvas>
+        <div
+          style={{
+            position: 'relative',
+            flex: '1 1 380px',
+            minWidth: 300,
+            borderRadius: 28,
+            overflow: 'hidden',
+            background: 'radial-gradient(circle, #f4fff7 0%, #e3faec 100%)',
+            boxShadow: '0 14px 40px rgba(0,0,0,0.08)',
+            border: '2px solid rgba(46, 204, 113, 0.22)',
+          }}
+        >
+          <PanelTitle>Your cut, in 3D</PanelTitle>
+          {/* No auto-rotate: the cut face should stay facing the viewer. Controls stay on
+              so they can still spin it by hand. */}
+          <FoodCanvas height={420} width="100%" autoRotate={false} controlsEnabled>
+            {scene(active, setActive)}
+          </FoodCanvas>
 
-        {/* Sits over the canvas, where the child is already looking, instead of
-            below the fold underneath the chips. */}
-        <AnimatePresence>
-          {!activeFact && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10, transition: { duration: 0.15 } }}
-              style={{
-                position: 'absolute',
-                left: '50%',
-                bottom: 14,
-                transform: 'translateX(-50%)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 18px',
-                borderRadius: 999,
-                background: 'rgba(27, 105, 70, 0.94)',
-                color: '#ffffff',
-                fontWeight: 800,
-                fontSize: '0.95rem',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 6px 20px rgba(27, 105, 70, 0.3)',
-                pointerEvents: 'none',
-              }}
-            >
-              <motion.span
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ display: 'flex' }}
+          {/* Sits over the canvas, where the child is already looking, instead of
+              below the fold underneath the chips. */}
+          <AnimatePresence>
+            {!activeFact && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10, transition: { duration: 0.15 } }}
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  bottom: 14,
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '9px 16px',
+                  borderRadius: 999,
+                  background: 'rgba(27, 105, 70, 0.94)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 6px 20px rgba(27, 105, 70, 0.3)',
+                  pointerEvents: 'none',
+                }}
               >
-                <Hand size={18} />
-              </motion.span>
-              Tap a glowing dot on the food!
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <motion.span
+                  animate={{ y: [0, -4, 0] }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{ display: 'flex' }}
+                >
+                  <Hand size={16} />
+                </motion.span>
+                Tap a glowing dot!
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div
+          style={{
+            position: 'relative',
+            flex: '1 1 380px',
+            minWidth: 300,
+            borderRadius: 28,
+            overflow: 'hidden',
+            background: 'radial-gradient(circle, #f7fdf9 0%, #e9f6ee 100%)',
+            boxShadow: '0 14px 40px rgba(0,0,0,0.08)',
+            border: '2px solid rgba(46, 204, 113, 0.22)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '46px 8px 12px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <PanelTitle>{micro.caption}</PanelTitle>
+          <CellView spec={micro} />
+        </div>
       </div>
 
       {/* The chips mirror the markers on the model — same colour, same order — so

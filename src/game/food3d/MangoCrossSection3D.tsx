@@ -2,6 +2,7 @@ import { Citrus, Droplet, Sprout, Sparkles } from 'lucide-react';
 import CrossSectionShell, { type CrossSectionFact } from './CrossSectionShell';
 import { MangoHalfGeometry } from './MangoModel';
 import Hotspot from './Hotspot';
+import { MICRO } from '../micro/microStructures';
 
 const FACTS: CrossSectionFact[] = [
   {
@@ -74,6 +75,7 @@ export default function MangoCrossSection3D() {
   return (
     <CrossSectionShell
       facts={FACTS}
+      micro={MICRO['mango']}
       scene={(active, select) => <Scene active={active} select={select} />}
     />
   );

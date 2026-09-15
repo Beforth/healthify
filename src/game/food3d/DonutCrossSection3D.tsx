@@ -2,6 +2,7 @@ import { Candy, Wheat, Wind, Flame } from 'lucide-react';
 import CrossSectionShell, { type CrossSectionFact } from './CrossSectionShell';
 import { DonutHalfGeometry } from './DonutModel';
 import Hotspot from './Hotspot';
+import { MICRO } from '../micro/microStructures';
 
 const FACTS: CrossSectionFact[] = [
   {
@@ -78,6 +79,7 @@ export default function DonutCrossSection3D() {
   return (
     <CrossSectionShell
       facts={FACTS}
+      micro={MICRO['donut']}
       scene={(active, select) => <Scene active={active} select={select} />}
     />
   );
