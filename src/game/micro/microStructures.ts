@@ -71,7 +71,7 @@ export const MICRO: Record<string, MicroSpec> = {
     labels: [
       { id: 'matrix', text: 'Juicy cells, full of water!', sciText: 'Parenchyma Cell Matrix', kind: 'matrix', at: [140, 46] },
       { id: 'pocket', text: 'Air pockets = the crunch!', sciText: 'Intercellular Air Space', kind: 'pocket', at: [268, 126] },
-      { id: 'vessel', text: 'Tubes that fed the apple', sciText: 'Vascular Bundle', kind: 'vessel', at: [232, 356] },
+      { id: 'vessel', text: 'Tubes that fed the apple', sciText: 'Vascular Bundle', kind: 'vessel', at: [200, 312] },
     ],
   },
   mango: {
@@ -95,7 +95,7 @@ export const MICRO: Record<string, MicroSpec> = {
     labels: [
       { id: 'matrix', text: 'Soft cells full of sweet juice', sciText: 'Parenchyma Cell Matrix', kind: 'matrix', at: [140, 46] },
       { id: 'inclusion', text: 'Little stores of food', sciText: 'Amyloplast (Starch)', kind: 'inclusion', at: [268, 126] },
-      { id: 'vessel', text: 'Stringy juice tubes', sciText: 'Fibrovascular Strand', kind: 'vessel', at: [232, 356] },
+      { id: 'vessel', text: 'Stringy juice tubes', sciText: 'Fibrovascular Strand', kind: 'vessel', at: [200, 312] },
     ],
   },
   donut: {
@@ -119,7 +119,7 @@ export const MICRO: Record<string, MicroSpec> = {
     labels: [
       { id: 'pocket', text: 'Air bubbles blown by yeast!', sciText: 'Gas Cell (CO\u2082 Void)', kind: 'pocket', at: [140, 46] },
       { id: 'matrix', text: 'Stretchy dough web', sciText: 'Gluten\u2013Starch Matrix', kind: 'matrix', at: [268, 126] },
-      { id: 'inclusion', text: 'Sugar crystals everywhere', sciText: 'Sucrose Crystal', kind: 'inclusion', at: [232, 356] },
+      { id: 'inclusion', text: 'Sugar crystals everywhere', sciText: 'Sucrose Crystal', kind: 'inclusion', at: [200, 312] },
     ],
   },
   'chocolate-bar': {
@@ -143,7 +143,7 @@ export const MICRO: Record<string, MicroSpec> = {
     labels: [
       { id: 'inclusion', text: 'Sugar crystals, packed tight!', sciText: 'Sucrose Crystal', kind: 'inclusion', at: [140, 46] },
       { id: 'matrix', text: 'Ground-up cocoa bits', sciText: 'Cocoa Solid Particle', kind: 'matrix', at: [268, 126] },
-      { id: 'pocket', text: 'Cocoa butter glues it all', sciText: 'Cocoa Butter Phase', kind: 'pocket', at: [232, 356] },
+      { id: 'pocket', text: 'Cocoa butter glues it all', sciText: 'Cocoa Butter Phase', kind: 'pocket', at: [200, 312] },
     ],
   },
 };
