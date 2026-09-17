@@ -225,3 +225,11 @@ export const FOODS: FoodItem[] = [
 export function getFoodById(id: string): FoodItem | undefined {
   return FOODS.find((f) => f.id === id);
 }
+
+/** Picks a random food from the given category, skipping `excludeId` when there's another option. */
+export function randomFoodOfCategory(category: FoodCategory, excludeId?: string): FoodItem {
+  const pool = FOODS.filter((f) => f.category === category);
+  const choices = pool.filter((f) => f.id !== excludeId);
+  const from = choices.length > 0 ? choices : pool;
+  return from[Math.floor(Math.random() * from.length)];
+}

@@ -7,12 +7,16 @@ interface BackButtonProps {
   fallback: string;
   dark?: boolean;
   showLabel?: boolean;
+  /** Always go to `fallback`, skipping the "pop browser history" behavior — for
+   *  screens where in-app history doesn't map to a sensible "back" (e.g. a chain
+   *  of auto-picked foods), so Back always lands somewhere predictable instead. */
+  force?: boolean;
 }
 
-export default function BackButton({ fallback, dark, showLabel = true }: BackButtonProps) {
+export default function BackButton({ fallback, dark, showLabel = true, force = false }: BackButtonProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const canGoBack = location.key !== 'default';
+  const canGoBack = !force && location.key !== 'default';
 
   const goBack = () => {
     if (canGoBack) {

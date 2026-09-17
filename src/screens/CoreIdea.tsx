@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Box, Target, Star, Heart, ArrowRight, UtensilsCrossed } from 'lucide-react';
+import { Box, Target, Star, Heart, ArrowRight, ChefHat, UtensilsCrossed } from 'lucide-react';
 import { DonutIcon } from '../components/FoodIcon';
 import BackButton from '../components/BackButton';
+import { hasSeenTutorial } from '../lib/tutorialSeen';
 
 const features = [
   { icon: Box, color: '#4dd6ff', title: 'Explore food in 3D', text: 'Spin, cut, and look inside real food shapes.' },
@@ -36,12 +37,14 @@ export default function CoreIdea() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
           gap: 16,
-          maxWidth: 640,
+          maxWidth: 960,
           marginTop: 32,
           width: '100%',
         }}
+        className="core-idea-grid"
+        data-tour="feature-grid"
       >
         {features.map((f, i) => (
           <motion.div
@@ -83,10 +86,19 @@ export default function CoreIdea() {
 
       <button
         className="btn"
+        data-tour="show-me-how-button"
         style={{ marginTop: 24, display: 'inline-flex', alignItems: 'center', gap: 8 }}
-        onClick={() => navigate('/tutorial')}
+        onClick={() => navigate(hasSeenTutorial() ? '/foods' : '/tutorial')}
       >
-        Show me how <ArrowRight size={18} />
+        {hasSeenTutorial() ? (
+          <>
+            Pick a Food <ChefHat size={18} />
+          </>
+        ) : (
+          <>
+            Show me how <ArrowRight size={18} />
+          </>
+        )}
       </button>
     </div>
   );

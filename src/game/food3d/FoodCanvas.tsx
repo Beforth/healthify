@@ -1,4 +1,4 @@
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, useState, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 
@@ -52,6 +52,10 @@ export default function FoodCanvas({
   controlsEnabled = true,
   showPedestal = false,
 }: FoodCanvasProps) {
+  // Auto-rotate fights a hand-drag if it keeps nudging the camera mid-gesture —
+  // pause it for as long as the user is actually holding the drag.
+  const [interacting, setInteracting] = useState(false);
+
   return (
     <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: 'none' }}>
       <Canvas camera={{ position: [0, 1.25, 5.6], fov: 46 }} dpr={[1, 2]}>
@@ -75,8 +79,10 @@ export default function FoodCanvas({
           maxPolarAngle={Math.PI / 1.6}
           enableDamping
           dampingFactor={0.12}
-          autoRotate={autoRotate}
+          autoRotate={autoRotate && !interacting}
           autoRotateSpeed={1.4}
+          onStart={() => setInteracting(true)}
+          onEnd={() => setInteracting(false)}
         />
       </Canvas>
     </div>

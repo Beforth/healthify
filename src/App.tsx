@@ -4,6 +4,11 @@ import CoreIdea from './screens/CoreIdea';
 import Tutorial from './screens/Tutorial';
 import FoodSelect from './screens/FoodSelect';
 import GameScreen from './screens/GameScreen';
+import About from './screens/About';
+import Terms from './screens/Terms';
+import Contact from './screens/Contact';
+import TourOverlay from './components/TourOverlay';
+import ReviewModal from './components/ReviewModal';
 
 // Keyed on foodId so navigating directly between two /play/:foodId routes (e.g. via
 // browser back/forward) fully remounts GameScreen instead of reusing stale local state.
@@ -14,14 +19,21 @@ function GameRoute() {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Splash />} />
-      <Route path="/learn" element={<CoreIdea />} />
-      <Route path="/tutorial" element={<Tutorial />} />
-      <Route path="/foods" element={<FoodSelect />} />
-      <Route path="/play/:foodId" element={<GameRoute />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <TourOverlay />
+      <ReviewModal />
+      <Routes>
+        <Route path="/" element={<Splash />} />
+        <Route path="/learn" element={<CoreIdea />} />
+        <Route path="/tutorial" element={<Tutorial />} />
+        <Route path="/foods" element={<FoodSelect />} />
+        <Route path="/play/:foodId" element={<GameRoute />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 

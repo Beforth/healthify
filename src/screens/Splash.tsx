@@ -1,7 +1,10 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Microscope, Gamepad2, Play } from 'lucide-react';
 import { ChocolateBarIcon, DonutIcon, MangoIcon } from '../components/FoodIcon';
+import SideDrawer from '../components/SideDrawer';
+import { hasSeenTour, useTourStore } from '../store/tourStore';
 
 const floaters = [
   { render: () => <Microscope size={26} color="#1f7a4d" />, top: '12%', left: '10%', delay: 0 },
@@ -33,6 +36,14 @@ function Badge({ children }: { children: React.ReactNode }) {
 
 export default function Splash() {
   const navigate = useNavigate();
+  const tourActive = useTourStore((s) => s.active);
+  const startTour = useTourStore((s) => s.start);
+
+  useEffect(() => {
+    if (!hasSeenTour() && !tourActive) startTour();
+    // Only ever auto-starts once, on first landing — not on every re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div
@@ -42,6 +53,8 @@ export default function Splash() {
         color: 'white',
       }}
     >
+      <SideDrawer />
+
       {floaters.map((f, i) => (
         <motion.div
           key={i}
@@ -76,6 +89,7 @@ export default function Splash() {
 
         <motion.button
           className="btn"
+          data-tour="play-button"
           style={{
             marginTop: 36,
             background: 'white',

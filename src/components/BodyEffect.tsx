@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Zap, BatteryLow, Frown, Timer, Smile, Sparkles } from 'lucide-react';
+import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip, type TooltipProps } from 'recharts';
 import type { FoodCategory } from '../data/nutritionData';
 
 /**
@@ -31,39 +32,76 @@ const HEALTHY_BEATS: Beat[] = [
 ];
 
 /** The curve is the whole message: one shape spikes and falls off a cliff, the
- *  other climbs and stays up. Points are shared with the travelling dot below. */
-const JUNK_POINTS = [
-  [12, 118], [62, 108], [100, 48], [142, 24], [178, 62], [216, 116], [272, 142], [352, 140], [428, 139],
+ *  other climbs and stays up. `energy` is unitless on purpose — a seven-year-old
+ *  reads the shape, not a number on the axis. */
+const JUNK_CURVE = [
+  { minute: 0, energy: 20 },
+  { minute: 8, energy: 35 },
+  { minute: 15, energy: 85 },
+  { minute: 20, energy: 100 },
+  { minute: 25, energy: 65 },
+  { minute: 30, energy: 25 },
+  { minute: 40, energy: 10 },
+  { minute: 50, energy: 8 },
+  { minute: 60, energy: 8 },
 ];
-const HEALTHY_POINTS = [
-  [12, 122], [72, 114], [122, 84], [172, 64], [242, 56], [302, 58], [362, 62], [428, 66],
+const HEALTHY_CURVE = [
+  { minute: 0, energy: 15 },
+  { minute: 10, energy: 30 },
+  { minute: 17, energy: 55 },
+  { minute: 24, energy: 75 },
+  { minute: 33, energy: 85 },
+  { minute: 42, energy: 82 },
+  { minute: 50, energy: 80 },
+  { minute: 60, energy: 78 },
 ];
 
-function toPath(points: number[][]) {
-  // Catmull-Rom through the points, converted to cubic Beziers. Chaining
-  // quadratics instead gives a stepped, blocky spike — wrong feel for a curve
-  // whose entire job is to look like a rush and a crash.
-  const d = [`M ${points[0][0]} ${points[0][1]}`];
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[Math.max(0, i - 1)];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[Math.min(points.length - 1, i + 2)];
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${p2[0]} ${p2[1]}`);
-  }
-  return d.join(' ');
+/** The two end ticks sit right at the axis's edges — anchoring "you eat it" to
+ *  start and "an hour later" to end keeps both readable instead of getting
+ *  clipped by the chart's own edge on a narrow screen. Recharts calls this as a
+ *  plain function with the real per-tick x/y/payload — passing a JSX element
+ *  instead (the other documented form) does not reliably get those props. */
+function renderAxisTick({ x, y, payload }: { x: number; y: number; payload: { value: number } }) {
+  const isStart = payload.value === 0;
+  return (
+    <text x={x} y={y + 10} textAnchor={isStart ? 'start' : 'end'} fontSize={12} fontWeight={700} fill="#7d9a8a">
+      {isStart ? 'you eat it' : 'an hour later'}
+    </text>
+  );
+}
+
+function energyLabel(v: number) {
+  if (v >= 70) return 'High energy';
+  if (v >= 35) return 'Medium energy';
+  return 'Low energy';
+}
+
+function ChartTooltip({ active, payload, line }: TooltipProps<number, string> & { line: string }) {
+  if (!active || !payload?.length) return null;
+  const v = payload[0].value as number;
+  return (
+    <div
+      style={{
+        background: '#ffffff',
+        border: `1.5px solid ${line}`,
+        borderRadius: 10,
+        padding: '5px 10px',
+        fontSize: '0.78rem',
+        fontWeight: 800,
+        color: line,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {energyLabel(v)}
+    </div>
+  );
 }
 
 /** "a donut" / "an apple" — the heading reads as broken English without it. */
 function article(name: string) {
   return /^[aeiou]/i.test(name) ? 'an' : 'a';
 }
-
-const DRAW = 2.4;
 
 export default function BodyEffect({
   category,
@@ -73,16 +111,15 @@ export default function BodyEffect({
   foodName: string;
 }) {
   const junk = category === 'junk';
-  const points = junk ? JUNK_POINTS : HEALTHY_POINTS;
+  const data = junk ? JUNK_CURVE : HEALTHY_CURVE;
   const beats = junk ? JUNK_BEATS : HEALTHY_BEATS;
+  const gradientId = junk ? 'energyFillJunk' : 'energyFillHealthy';
 
   const line = junk ? '#ef4444' : '#16a34a';
-  const fill = junk ? 'rgba(239, 68, 68, 0.16)' : 'rgba(22, 163, 74, 0.16)';
   const panel = junk ? '#fff5f5' : '#f3fdf7';
   const edge = junk ? '#fecaca' : '#bbf7d0';
 
-  const d = toPath(points);
-  const area = `${d} L ${points[points.length - 1][0]} 150 L ${points[0][0]} 150 Z`;
+  const DRAW = 1.4;
 
   return (
     <motion.div
@@ -123,58 +160,41 @@ export default function BodyEffect({
         Your energy for the hour after eating it
       </div>
 
-      <svg viewBox="0 0 440 168" style={{ width: '100%', display: 'block' }}>
-        {/* faint floor lines so the rise and fall have something to be measured against */}
-        {[40, 80, 120].map((y) => (
-          <line key={y} x1="10" y1={y} x2="430" y2={y} stroke={edge} strokeWidth="1.5" strokeDasharray="4 6" />
-        ))}
-        <line x1="10" y1="150" x2="430" y2="150" stroke={edge} strokeWidth="2.5" />
-
-        <motion.path
-          d={area}
-          fill={fill}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: DRAW * 0.75, duration: 0.6 }}
-        />
-        <motion.path
-          d={d}
-          fill="none"
-          stroke={line}
-          strokeWidth="5"
-          strokeLinecap="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ delay: 0.65, duration: DRAW, ease: 'easeInOut' }}
-        />
-
-        {/* the dot rides the curve, so the child watches the change happen */}
-        <motion.circle
-          r="8"
-          fill={line}
-          stroke="#ffffff"
-          strokeWidth="3"
-          initial={{ cx: points[0][0], cy: points[0][1], opacity: 0 }}
-          animate={{
-            cx: points.map((p) => p[0]),
-            cy: points.map((p) => p[1]),
-            opacity: 1,
-          }}
-          transition={{
-            delay: 0.65,
-            duration: DRAW,
-            ease: 'easeInOut',
-            opacity: { duration: 0.2, delay: 0.65 },
-          }}
-        />
-
-        <text x="12" y="166" fontSize="13" fontWeight="700" fill="#7d9a8a">
-          you eat it
-        </text>
-        <text x="430" y="166" fontSize="13" fontWeight="700" fill="#7d9a8a" textAnchor="end">
-          an hour later
-        </text>
-      </svg>
+      <ResponsiveContainer width="100%" height={140}>
+        <AreaChart data={data} margin={{ top: 12, right: 8, left: 8, bottom: 4 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={line} stopOpacity={0.28} />
+              <stop offset="100%" stopColor={line} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <XAxis
+            dataKey="minute"
+            type="number"
+            domain={[0, 60]}
+            ticks={[0, 60]}
+            axisLine={{ stroke: edge, strokeWidth: 2 }}
+            tickLine={false}
+            tickMargin={8}
+            tick={renderAxisTick}
+            interval={0}
+          />
+          <Tooltip content={<ChartTooltip line={line} />} cursor={{ stroke: edge, strokeWidth: 2 }} />
+          <Area
+            type="monotone"
+            dataKey="energy"
+            stroke={line}
+            strokeWidth={4}
+            strokeLinecap="round"
+            fill={`url(#${gradientId})`}
+            isAnimationActive
+            animationDuration={DRAW * 1000}
+            animationEasing="ease-in-out"
+            dot={false}
+            activeDot={{ r: 7, fill: line, stroke: '#ffffff', strokeWidth: 3 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
 
       <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
         {beats.map((b, i) => (

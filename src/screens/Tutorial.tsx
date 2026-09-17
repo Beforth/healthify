@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { CircleCheckBig, UtensilsCrossed, Microscope, ArrowLeft, ArrowRight, ChefHat } from 'lucide-react';
+import { CircleCheckBig, UtensilsCrossed, Microscope, ArrowLeft, ArrowRight, ChefHat, SkipForward } from 'lucide-react';
 import { DonutIcon } from '../components/FoodIcon';
 import BackButton from '../components/BackButton';
+import { markTutorialSeen } from '../lib/tutorialSeen';
 
 const steps = [
   { icon: DonutIcon, title: 'Step 1', text: 'Choose a food' },
@@ -20,8 +21,32 @@ export default function Tutorial() {
 
   return (
     <div className="screen" style={{ background: 'linear-gradient(160deg, #eafff2 0%, #d3f9e2 100%)' }}>
-      <BackButton fallback="/learn" />
-      <h1 style={{ color: 'var(--green-dark)', fontSize: '2rem', fontWeight: 900 }}>
+      <div style={{ width: '100%', maxWidth: 420, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <BackButton fallback="/learn" />
+        <button
+          onClick={() => {
+            markTutorialSeen();
+            navigate('/foods');
+          }}
+          style={{
+            borderRadius: 999,
+            border: '1px solid rgba(0,0,0,0.06)',
+            padding: '9px 16px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer',
+            background: '#ffffff',
+            color: 'var(--ink-soft)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+          }}
+        >
+          Skip <SkipForward size={15} strokeWidth={2.5} />
+        </button>
+      </div>
+      <h1 style={{ color: 'var(--green-dark)', fontSize: '2rem', fontWeight: 900, marginTop: 20 }}>
         How to Play
       </h1>
 
@@ -86,7 +111,14 @@ export default function Tutorial() {
         <button
           className="btn"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-          onClick={() => (isLast ? navigate('/foods') : setStep((s) => s + 1))}
+          onClick={() => {
+            if (isLast) {
+              markTutorialSeen();
+              navigate('/foods');
+            } else {
+              setStep((s) => s + 1);
+            }
+          }}
         >
           {isLast ? (
             <>

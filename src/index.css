@@ -106,3 +106,28 @@ button {
   box-shadow: var(--shadow);
   padding: 24px;
 }
+
+@media (max-width: 720px) {
+  .core-idea-grid,
+  .food-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .core-idea-grid,
+  .food-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* GameScreen's header packs Back+Skip, the brand, and the score pill into one
+   row — there's room for that on a laptop, but not a phone. Below 640px the
+   brand drops to its own full-width row instead of squeezing (or overflowing)
+   the other two. */
+@media (max-width: 640px) {
+  .game-header-brand {
+    order: 3;
+    flex-basis: 100%;
+  }
+}

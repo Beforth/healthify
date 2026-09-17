@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Droplet, Candy, Flame, Citrus, PartyPopper, RotateCw, Microscope, Hand, Sparkles, X } from 'lucide-react';
-import { getFoodById, type QuizTopic } from '../data/nutritionData';
+import { Droplet, Candy, Flame, Citrus, PartyPopper, RotateCw, Microscope, Hand, Sparkles, X, SkipForward } from 'lucide-react';
+import { getFoodById, randomFoodOfCategory, type QuizTopic } from '../data/nutritionData';
 import { useGameStore } from '../store/gameStore';
+import { useReviewStore } from '../store/reviewStore';
 import FoodIcon from '../components/FoodIcon';
 import BackButton from '../components/BackButton';
 import Celebration from '../components/Celebration';
@@ -11,6 +12,8 @@ import BodyEffect from '../components/BodyEffect';
 import FoodCanvas from '../game/food3d/FoodCanvas';
 import Knife3D from '../game/food3d/Knife3D';
 import SliceImpact from '../game/food3d/SliceImpact';
+import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
+import DragRotate from '../game/food3d/DragRotate';
 import { FOOD_MODELS, FOOD_CROSS_SECTIONS } from '../game/food3d/foodRegistry';
 
 const topicMeta: Record<QuizTopic, { label: string; icon: typeof Droplet; color: string }> = {
@@ -35,12 +38,16 @@ export default function GameScreen() {
     addPoints,
     resetForNextFood,
   } = useGameStore((s) => s);
+  const recordAnswer = useReviewStore((s) => s.recordAnswer);
 
   const [cut, setCut] = useState(false);
   const [zooming, setZooming] = useState(false);
   const [chosenOption, setChosenOption] = useState<number | null>(null);
   /** The option they already got wrong, kept across a retry so it stays flagged. */
   const [wrongChoice, setWrongChoice] = useState<number | null>(null);
+  /** Only the first attempt at a question costs points; retries after that don't dip the score again. */
+  const [firstAttemptDone, setFirstAttemptDone] = useState(false);
+  const [justPenalized, setJustPenalized] = useState(false);
   const [flashKey, setFlashKey] = useState(0);
   const cutProgressRef = useRef(0);
   const isCuttingAuto = useRef(false);
@@ -62,6 +69,8 @@ export default function GameScreen() {
     setZooming(false);
     setChosenOption(null);
     setWrongChoice(null);
+    setFirstAttemptDone(false);
+    setJustPenalized(false);
     cutProgressRef.current = 0;
     isCuttingAuto.current = false;
   }, [food, selectFood]);
@@ -111,24 +120,55 @@ export default function GameScreen() {
     >
       {/* Top Header Bar matching reference mockup */}
       <header
+        className="game-header"
         style={{
           width: '100%',
           maxWidth: 960,
           display: 'flex',
+          flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
+          rowGap: 10,
           padding: '8px 4px 18px',
           margin: '0 auto',
           position: 'relative',
         }}
       >
-        {/* Left: Back Button Capsule */}
-        <div>
-          <BackButton fallback="/foods" />
+        {/* Left: Back Button Capsule + Skip (only while cutting / inspecting) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <BackButton fallback="/foods" force />
+          {(gameStep === 'cut' || gameStep === 'microscope') && (
+            <motion.button
+              whileTap={{ scale: 0.94 }}
+              whileHover={{ scale: 1.04 }}
+              onClick={() => advanceStep('quiz')}
+              aria-label="Skip to the quiz"
+              style={{
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.06)',
+                padding: '9px 16px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                background: '#ffffff',
+                color: 'var(--ink-soft)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+              }}
+            >
+              Skip <SkipForward size={15} strokeWidth={2.5} />
+            </motion.button>
+          )}
         </div>
 
-        {/* Center: Healthify Brand Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        {/* Center: Healthify Brand Header — wraps to its own full-width row on
+            narrow screens instead of squeezing / overflowing the other two. */}
+        <div
+          className="game-header-brand"
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <svg
               width="26"
@@ -175,6 +215,7 @@ export default function GameScreen() {
             display: 'flex',
             alignItems: 'center',
             gap: 8,
+            flexShrink: 0,
           }}
         >
           <span style={{ fontSize: '1.35rem', lineHeight: 1 }}>⭐</span>
@@ -211,7 +252,7 @@ export default function GameScreen() {
                 transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
                 style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}
               >
-                <FoodIcon id={food.id} size={96} />
+                <FoodThumbnail3D foodId={food.id} size={160} />
               </motion.div>
               <h2 style={{ color: '#134e2c', fontSize: '1.8rem', fontWeight: 900, marginBottom: 8 }}>
                 What do you want to explore?
@@ -263,8 +304,8 @@ export default function GameScreen() {
               style={{
                 position: 'relative',
                 width: '100%',
-                maxWidth: 960,
-                minHeight: 640,
+                maxWidth: 1180,
+                minHeight: 'clamp(460px, 78vh, 760px)',
                 margin: '0 auto',
                 borderRadius: 36,
                 overflow: 'hidden',
@@ -404,15 +445,26 @@ export default function GameScreen() {
                 style={{
                   position: 'relative',
                   width: '100%',
-                  height: 540,
+                  height: 'clamp(340px, 56vh, 660px)',
                   marginTop: -42,
                   marginBottom: -32,
                 }}
               >
-                <FoodCanvas height={540} width="100%" showPedestal autoRotate={false} controlsEnabled={false}>
-                  <FoodModel cutProgressRef={cutProgressRef} />
+                <FoodCanvas
+                  height="clamp(340px, 56vh, 660px)"
+                  width="100%"
+                  showPedestal
+                  autoRotate={false}
+                  controlsEnabled={false}
+                >
+                  {/* Only the food spins in place when dragged — the knife and pedestal
+                      never move, since the camera itself stays fixed the whole time. */}
+                  <DragRotate>
+                    <FoodModel cutProgressRef={cutProgressRef} />
+                  </DragRotate>
                   <Knife3D
                     progressRef={cutProgressRef}
+                    disabled={cut}
                     onComplete={() => {
                       setCut(true);
                       setFlashKey((k) => k + 1);
@@ -671,8 +723,17 @@ export default function GameScreen() {
                 disabled={chosenOption === null}
                 onClick={() => {
                   const correct = chosenOption === quizQuestion.correctIndex;
-                  if (correct) addPoints(10);
-                  else setWrongChoice(chosenOption);
+                  if (!firstAttemptDone) recordAnswer();
+                  if (correct) {
+                    addPoints(10);
+                    setJustPenalized(false);
+                  } else {
+                    setWrongChoice(chosenOption);
+                    const penalize = !firstAttemptDone;
+                    if (penalize) addPoints(-5);
+                    setJustPenalized(penalize);
+                    setFirstAttemptDone(true);
+                  }
                   answerQuiz(correct);
                 }}
               >
@@ -744,19 +805,28 @@ export default function GameScreen() {
                   >
                     Have another go — you've got this!
                   </motion.p>
+                  {justPenalized && (
+                    <p style={{ color: '#b91c1c', fontWeight: 700, fontSize: '0.85rem', margin: '0 0 6px' }}>
+                      −5 points
+                    </p>
+                  )}
                 </>
               )}
-              <p
-                style={{
-                  maxWidth: 420,
-                  margin: '0 auto 20px',
-                  color: '#476854',
-                  fontSize: '0.94rem',
-                  lineHeight: 1.5,
-                }}
-              >
-                {quizQuestion.explanation}
-              </p>
+              {/* explanation names the correct answer, so it only shows once they've actually got it right —
+                  otherwise a wrong guess turns retrying into "read the answer, then click it" */}
+              {lastAnswerCorrect && (
+                <p
+                  style={{
+                    maxWidth: 420,
+                    margin: '0 auto 20px',
+                    color: '#476854',
+                    fontSize: '0.94rem',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {quizQuestion.explanation}
+                </p>
+              )}
               {/* the brief's missing beat: having answered, show what the food
                   actually DOES to you. Only after a correct answer — a wrong one
                   should keep all the attention on trying again. */}
@@ -800,7 +870,12 @@ export default function GameScreen() {
                     setChosenOption(null);
                     setWrongChoice(null);
                     resetForNextFood();
-                    navigate('/foods');
+                    // Go straight into a random food of the opposite category — the
+                    // alternation is automatic either direction, so there's no reason
+                    // to send them back to the picker just to tap the one unlocked kind.
+                    const nextCategory = food.category === 'junk' ? 'healthy' : 'junk';
+                    const next = randomFoodOfCategory(nextCategory, food.id);
+                    navigate(`/play/${next.id}`);
                   }}
                 >
                   Explore Next Food ➜

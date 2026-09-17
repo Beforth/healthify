@@ -20,6 +20,10 @@ interface Knife3DProps {
   onComplete: () => void;
   /** Cut angle in radians (optional). */
   angle?: number;
+  /** Once the cut is done, the knife has nothing left to do — stop it from
+   *  swallowing pointer events so whatever's drawn behind it (the food, wrapped
+   *  in its own DragRotate) can be grabbed and spun instead. */
+  disabled?: boolean;
 }
 
 function useBladeShape() {
@@ -73,7 +77,12 @@ function DownwardGuideArrow({ opacity }: { opacity: number }) {
   );
 }
 
-export default function Knife3D({ progressRef, onComplete, angle = DEFAULT_TILT }: Knife3DProps) {
+export default function Knife3D({
+  progressRef,
+  onComplete,
+  angle = DEFAULT_TILT,
+  disabled = false,
+}: Knife3DProps) {
   const group = useRef<THREE.Group>(null);
   const bladeGeo = useBladeShape();
   const trailRefs = useRef<(THREE.Mesh | null)[]>([]);
@@ -214,23 +223,21 @@ export default function Knife3D({ progressRef, onComplete, angle = DEFAULT_TILT 
     <>
       <DownwardGuideArrow opacity={guideOpacity} />
 
-      {/* Invisible broad grab plane covering the whole canvas */}
-      <mesh
-        visible={false}
-        position={[0, 0, 1.7]}
-        onPointerDown={(e) => {
-          onPointerDown(e);
-        }}
-      >
-        <planeGeometry args={[14, 12]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
+      {/* Invisible broad grab plane covering the whole canvas — forgiving so kids don't need
+          to hit the thin blade exactly. Once the cut is done there's nothing left to drag, so
+          it stops listening entirely and lets DragRotate on the food take pointer events instead. */}
+      {!disabled && (
+        <mesh visible={false} position={[0, 0, 1.7]} onPointerDown={onPointerDown}>
+          <planeGeometry args={[14, 12]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      )}
 
       <group
         ref={group}
         position={[DEFAULT_REST_X, DEFAULT_REST_Y, DEFAULT_REST_Z]}
         rotation={[0, 0, angle]}
-        onPointerDown={onPointerDown}
+        onPointerDown={disabled ? undefined : onPointerDown}
       >
         {/* Fading trail ghosts */}
         {Array.from({ length: TRAIL_LEN - 1 }).map((_, i) => (
