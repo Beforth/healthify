@@ -100,7 +100,7 @@ export default function TourOverlay() {
       />
       {spotlight && (
         <motion.div
-          animate={spotlight}
+          animate={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           style={{
             position: 'fixed',

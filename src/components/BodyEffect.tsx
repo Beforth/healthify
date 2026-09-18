@@ -1,6 +1,14 @@
 import { motion } from 'framer-motion';
 import { Zap, BatteryLow, Frown, Timer, Smile, Sparkles } from 'lucide-react';
-import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip, type TooltipProps } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  ResponsiveContainer,
+  Tooltip,
+  type TooltipContentProps,
+  type XAxisTickContentProps,
+} from 'recharts';
 import type { FoodCategory } from '../data/nutritionData';
 
 /**
@@ -61,10 +69,10 @@ const HEALTHY_CURVE = [
  *  clipped by the chart's own edge on a narrow screen. Recharts calls this as a
  *  plain function with the real per-tick x/y/payload — passing a JSX element
  *  instead (the other documented form) does not reliably get those props. */
-function renderAxisTick({ x, y, payload }: { x: number; y: number; payload: { value: number } }) {
+function renderAxisTick({ x, y, payload }: XAxisTickContentProps) {
   const isStart = payload.value === 0;
   return (
-    <text x={x} y={y + 10} textAnchor={isStart ? 'start' : 'end'} fontSize={12} fontWeight={700} fill="#7d9a8a">
+    <text x={x} y={Number(y) + 10} textAnchor={isStart ? 'start' : 'end'} fontSize={12} fontWeight={700} fill="#7d9a8a">
       {isStart ? 'you eat it' : 'an hour later'}
     </text>
   );
@@ -76,7 +84,7 @@ function energyLabel(v: number) {
   return 'Low energy';
 }
 
-function ChartTooltip({ active, payload, line }: TooltipProps<number, string> & { line: string }) {
+function ChartTooltip({ active, payload, line }: TooltipContentProps & { line: string }) {
   if (!active || !payload?.length) return null;
   const v = payload[0].value as number;
   return (
@@ -179,7 +187,7 @@ export default function BodyEffect({
             tick={renderAxisTick}
             interval={0}
           />
-          <Tooltip content={<ChartTooltip line={line} />} cursor={{ stroke: edge, strokeWidth: 2 }} />
+          <Tooltip content={(props) => <ChartTooltip {...props} line={line} />} cursor={{ stroke: edge, strokeWidth: 2 }} />
           <Area
             type="monotone"
             dataKey="energy"
