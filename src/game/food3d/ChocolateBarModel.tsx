@@ -1,78 +1,116 @@
-import { useRef, useState, type MutableRefObject } from 'react';
+import { useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { RoundedBox } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCutKick } from './useCutKick';
+import { sliceAtX, type SlicedHalf } from './sliceMesh';
 
-const HALF_WIDTH = 0.7;
-const HEIGHT = 0.32;
-const DEPTH = 1.0;
-const SQUARES = 3;
+const MODEL_URL = `${import.meta.env.BASE_URL}models/chocolate.glb`;
 
-export function ChocolateHalf() {
-  const squareDepth = DEPTH / SQUARES;
-  const squareWidth = HALF_WIDTH - 0.1;
-  const gap = 0.045;
+/** A photoscanned moulded bar, about 0.53 x 0.13 x 1.0 in its own units: it
+ *  arrives lying flat with its length down the z axis. */
+const SCALE = 1.95;
+
+/** Sampled off the scan: a deep, red-leaning cocoa brown. The cut face has to be
+ *  invented — the scan is only a shell — and a snapped bar is matte inside where
+ *  the moulded outside is glossy, so it sits a shade lighter than the surface. */
+const SNAP = '#63291a';
+
+useGLTF.preload(MODEL_URL);
+
+/**
+ * The flat face left behind by the snap.
+ *
+ * Chocolate is the same all the way through, so unlike the biscuit there are no
+ * layers to draw here — just a clean matte cap following the real cut outline,
+ * which for this bar is a rectangle with the moulding's ripple along its top.
+ */
+function CutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
+  const { outline } = half;
+
+  const geometry = useMemo(() => {
+    if (outline.length < 3) return null;
+
+    const cy = outline.reduce((sum, p) => sum + p.y, 0) / outline.length;
+    const cz = outline.reduce((sum, p) => sum + p.z, 0) / outline.length;
+    // the cap sits a hair proud of the opening, so pull the outline in by the
+    // same hair or it breaks the surface along the bar's rounded edges
+    const inset = 0.97;
+
+    const positions: number[] = [];
+    for (let i = 0; i < outline.length; i++) {
+      const a = outline[i];
+      const b = outline[(i + 1) % outline.length];
+      positions.push(
+        0, cy, cz,
+        0, cy + (a.y - cy) * inset, cz + (a.z - cz) * inset,
+        0, cy + (b.y - cy) * inset, cz + (b.z - cz) * inset,
+      );
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.computeVertexNormals();
+    return geo;
+  }, [outline]);
+
+  if (!geometry) return null;
+
+  return (
+    <mesh geometry={geometry} position={[faceSign * 0.003, 0, 0]}>
+      <meshStandardMaterial color={SNAP} roughness={0.85} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+export function ChocolateBarHalfGeometry({ isLeft = false }: { isLeft?: boolean }) {
+  const { scene } = useGLTF(MODEL_URL);
+
+  // useGLTF hands back a cached, shared scene — read what we need out of it and
+  // never mutate it, or every other copy on screen changes too.
+  const source = useMemo(() => {
+    let geometry: THREE.BufferGeometry | null = null;
+    let map: THREE.Texture | null = null;
+
+    scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (geometry || !mesh.isMesh) return;
+      geometry = mesh.geometry;
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      map = material?.map ?? null;
+    });
+
+    return { geometry, map };
+  }, [scene]);
+
+  const half = useMemo(() => {
+    if (!source.geometry) return null;
+    // The scan lies with its length down z, so a cut at x = 0 would split it the
+    // long way. Turn it a quarter so the length runs along x and the same cut
+    // snaps the bar in two the way a person would.
+    const upright = (source.geometry as THREE.BufferGeometry).clone();
+    upright.rotateY(-Math.PI / 2);
+    const sliced = sliceAtX(upright, isLeft);
+    upright.dispose();
+    return sliced;
+  }, [source.geometry, isLeft]);
+
+  if (!half) return null;
 
   return (
     <group>
-      {/* base slab, gently rounded edges like a real moulded bar */}
-      <RoundedBox
-        args={[HALF_WIDTH, HEIGHT, DEPTH]}
-        radius={0.025}
-        smoothness={3}
-        castShadow
-        receiveShadow
-        position={[-HALF_WIDTH / 2, 0, 0]}
-      >
-        <meshPhysicalMaterial color="#4a2a18" roughness={0.4} clearcoat={0.5} clearcoatRoughness={0.3} />
-      </RoundedBox>
-
-      {/* raised, individually-moulded squares on top, like a real chocolate bar */}
-      {Array.from({ length: SQUARES }).map((_, i) => {
-        const z = -DEPTH / 2 + squareDepth * (i + 0.5);
-        return (
-          <RoundedBox
-            key={i}
-            args={[squareWidth, 0.07, squareDepth - gap]}
-            radius={0.014}
-            smoothness={2}
-            castShadow
-            receiveShadow
-            position={[-HALF_WIDTH / 2, HEIGHT / 2 + 0.035, z]}
-          >
-            <meshPhysicalMaterial
-              color="#5c331d"
-              roughness={0.35}
-              clearcoat={0.7}
-              clearcoatRoughness={0.2}
-            />
-          </RoundedBox>
-        );
-      })}
-
-      {/* pressed "snap line" grooves between squares, like a real moulded bar */}
-      {Array.from({ length: SQUARES - 1 }).map((_, i) => {
-        const z = -DEPTH / 2 + squareDepth * (i + 1);
-        return (
-          <mesh key={i} position={[-HALF_WIDTH / 2, HEIGHT / 2 + 0.032, z]}>
-            <boxGeometry args={[squareWidth * 0.94, 0.014, 0.02]} />
-            <meshStandardMaterial color="#2f1a10" roughness={0.7} />
-          </mesh>
-        );
-      })}
-
-      {/* subtle glossy highlight streak */}
-      <mesh position={[-HALF_WIDTH / 2, HEIGHT / 2 + 0.076, -DEPTH * 0.15]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[squareWidth * 0.5, DEPTH * 0.7]} />
-        <meshStandardMaterial color="#ffffff" transparent opacity={0.08} roughness={0.1} />
+      {/* The scan ships without normals, so it is lit flat — which suits the
+          bar's crisp moulded facets better than smoothing them over would. */}
+      <mesh geometry={half.geometry} castShadow receiveShadow>
+        <meshStandardMaterial
+          map={source.map}
+          flatShading
+          roughness={0.5}
+          envMapIntensity={0.9}
+        />
       </mesh>
 
-      {/* a sliver of foil wrapper peeking out from underneath, like it's freshly unwrapped */}
-      <mesh position={[-HALF_WIDTH / 2, -HEIGHT / 2 - 0.015, DEPTH / 2 + 0.03]}>
-        <boxGeometry args={[HALF_WIDTH + 0.04, 0.03, 0.08]} />
-        <meshStandardMaterial color="#d8d8dc" roughness={0.25} metalness={0.6} />
-      </mesh>
+      <CutFace half={half} faceSign={isLeft ? -1 : 1} />
     </group>
   );
 }
@@ -95,34 +133,28 @@ export default function ChocolateBarModel({
     progress.current = THREE.MathUtils.damp(progress.current, cutProgressRef.current, 25, delta);
     const p = progress.current;
     const kick = tickKick(delta);
-    const sep = p * 0.7 + kick * 0.4;
+    const sep = p * 0.5 + kick * 0.28;
+
+    // a snapped bar does not slide apart flat — the two halves tip away from the
+    // break, which is what sells it as broken rather than sawn
     if (innerA.current) {
-      innerA.current.position.set(-sep * 1.05, -sep * 0.1, Math.min(sep * 0.24, 0.18));
-      innerA.current.rotation.set(
-        Math.min(sep * 0.14, 0.1),
-        Math.min(sep * 0.38, 0.28),
-        Math.min(sep * 0.26, 0.2)
-      );
+      innerA.current.position.set(sep, -sep * 0.06, 0);
+      innerA.current.rotation.z = -Math.min(sep * 0.5, 0.3);
     }
     if (innerB.current) {
-      innerB.current.position.set(sep * 1.05, -sep * 0.1, Math.min(sep * 0.24, 0.18));
-      innerB.current.rotation.set(
-        Math.min(sep * 0.14, 0.1),
-        Math.PI - Math.min(sep * 0.38, 0.28),
-        -Math.min(sep * 0.26, 0.2)
-      );
+      innerB.current.position.set(-sep, -sep * 0.06, 0);
+      innerB.current.rotation.z = Math.min(sep * 0.5, 0.3);
     }
 
     squish.current *= Math.exp(-delta * 6);
     if (outer.current) {
       const wobble = Math.sin(state.clock.elapsedTime * 14) * squish.current;
-      const hoverBoost = hovered ? 1.06 : 1;
-      outer.current.scale.set(
-        (1 + wobble * 0.1) * hoverBoost,
-        (1 - wobble * 0.15) * hoverBoost,
-        (1 + wobble * 0.1) * hoverBoost,
-      );
-      outer.current.position.y = cutProgressRef.current > 0.02 ? 0 : Math.sin(state.clock.elapsedTime * 1.6) * 0.04;
+      const hoverBoost = hovered ? 1.05 : 1;
+      // chocolate is hard: it barely gives when you press it, so the squish is
+      // much smaller here than on the fruit
+      outer.current.scale.setScalar(SCALE * (1 - wobble * 0.05) * hoverBoost);
+      outer.current.position.y =
+        cutProgressRef.current > 0.02 ? 0 : Math.sin(state.clock.elapsedTime * 1.6) * 0.04;
     }
   });
 
@@ -134,16 +166,18 @@ export default function ChocolateBarModel({
   return (
     <group
       ref={outer}
+      scale={SCALE}
       onPointerDown={bump}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      <group rotation={[0.35, 0.25, 0]}>
+      {/* tipped up off the board so both the moulded top and the snapped edge read */}
+      <group rotation={[0.38, 0.22, 0]}>
         <group ref={innerA}>
-          <ChocolateHalf />
+          <ChocolateBarHalfGeometry isLeft />
         </group>
-        <group ref={innerB} rotation={[0, Math.PI, 0]}>
-          <ChocolateHalf />
+        <group ref={innerB}>
+          <ChocolateBarHalfGeometry isLeft={false} />
         </group>
       </group>
     </group>

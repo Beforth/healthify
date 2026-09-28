@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hand } from 'lucide-react';
 import FoodCanvas from './FoodCanvas';
+import KeepInView from './KeepInView';
 import CellView, { type MicroVariant } from '../micro/CellView';
 import type { MicroSpec } from '../micro/microStructures';
 
@@ -25,8 +26,13 @@ interface CrossSectionShellProps {
   micro: MicroSpec;
   /** Renders the 3D scene. Receives the current selection, plus a setter so the
    *  markers stuck onto the model can change it — tapping the food and tapping a
-   *  chip are the same action. */
-  scene: (active: string | null, select: (id: string | null) => void) => ReactNode;
+   *  chip are the same action. Omitted for foods with no 3D model, which fill the
+   *  same panel with `flatView` instead. */
+  scene?: (active: string | null, select: (id: string | null) => void) => ReactNode;
+  /** Stand-in for the left panel when there is no 3D model to show. Given as a
+   *  function it gets the same selection and setter as `scene`, so a flat view
+   *  can carry the same tappable markers a 3D one does. */
+  flatView?: ReactNode | ((active: string | null, select: (id: string | null) => void) => ReactNode);
 }
 
 function PanelTitle({ children }: { children: ReactNode }) {
@@ -54,12 +60,19 @@ function PanelTitle({ children }: { children: ReactNode }) {
   );
 }
 
-export default function CrossSectionShell({ facts, micro, scene }: CrossSectionShellProps) {
+export default function CrossSectionShell({
+  facts,
+  micro,
+  scene,
+  flatView,
+}: CrossSectionShellProps) {
   // Deliberately starts empty. Pre-selecting a fact used to suppress the one line
   // of text that tells a child the thing is interactive at all.
   const [active, setActive] = useState<string | null>(null);
   const [variant, setVariant] = useState<MicroVariant>('cartoon');
   const activeFact = facts.find((f) => f.id === active) ?? null;
+  const flatHasMarkers = typeof flatView === 'function';
+  const showDotHint = (Boolean(scene) || flatHasMarkers) && !activeFact;
 
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: 980, margin: '0 auto' }}>
@@ -86,17 +99,30 @@ export default function CrossSectionShell({ facts, micro, scene }: CrossSectionS
             border: '2px solid rgba(46, 204, 113, 0.22)',
           }}
         >
-          <PanelTitle>Your cut, in 3D</PanelTitle>
-          {/* No auto-rotate: the cut face should stay facing the viewer. Controls stay on
-              so they can still spin it by hand. */}
-          <FoodCanvas height={420} width="100%" autoRotate={false} controlsEnabled>
-            {scene(active, setActive)}
-          </FoodCanvas>
+          <PanelTitle>{scene ? 'Your cut, in 3D' : 'Your cut'}</PanelTitle>
+          {scene ? (
+            // No auto-rotate: the cut face should stay facing the viewer. Controls stay on
+            // so they can still spin it by hand.
+            <FoodCanvas height={420} width="100%" autoRotate={false} controlsEnabled>
+              <KeepInView>{scene(active, setActive)}</KeepInView>
+            </FoodCanvas>
+          ) : (
+            <div
+              style={{
+                height: 420,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {typeof flatView === 'function' ? flatView(active, setActive) : flatView}
+            </div>
+          )}
 
           {/* Sits over the canvas, where the child is already looking, instead of
               below the fold underneath the chips. */}
           <AnimatePresence>
-            {!activeFact && (
+            {showDotHint && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -335,7 +361,11 @@ export default function CrossSectionShell({ facts, micro, scene }: CrossSectionS
                 textAlign: 'center',
               }}
             >
-              Drag the food to spin it around and look inside.
+              {scene
+                ? 'Drag the food to spin it around and look inside.'
+                : flatHasMarkers
+                  ? 'Tap a glowing dot or a nutrient below to find out what is inside.'
+                  : 'Tap a nutrient below to find out what is inside.'}
             </motion.div>
           )}
         </AnimatePresence>

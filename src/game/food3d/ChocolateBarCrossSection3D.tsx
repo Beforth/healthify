@@ -1,6 +1,6 @@
-import { Candy, Flame, Wheat, Shield } from 'lucide-react';
+import { Candy, Droplet, Flame, Wheat } from 'lucide-react';
 import CrossSectionShell, { type CrossSectionFact } from './CrossSectionShell';
-import { ChocolateHalf } from './ChocolateBarModel';
+import { ChocolateBarHalfGeometry } from './ChocolateBarModel';
 import Hotspot from './Hotspot';
 import { MICRO } from '../micro/microStructures';
 
@@ -23,28 +23,30 @@ const FACTS: CrossSectionFact[] = [
   },
   {
     id: 'fat',
-    icon: <Flame size={20} color="#e8552b" />,
+    icon: <Droplet size={20} color="#4dd6ff" />,
     name: 'Melty Fat',
     tag: '18 g cocoa butter',
-    color: '#ff8c42',
+    color: '#4dd6ff',
     fact: 'Cocoa butter melts at exactly the temperature of your body — that is the secret of why chocolate melts in your mouth.',
   },
   {
-    id: 'foil',
-    icon: <Shield size={20} color="#a8b0ba" />,
-    name: 'Shiny Wrapper',
-    color: '#8d99ae',
-    fact: 'The foil keeps light and air away from the chocolate so it does not go dull and stale on the shelf.',
+    id: 'energy',
+    icon: <Flame size={20} color="#ff8c42" />,
+    name: 'The Energy',
+    tag: '≈535 kcal',
+    color: '#ff8c42',
+    fact: '≈535 kcal packed into one 100 g bar, mostly from the sugar and the fat together. That is a lot of energy for something you finish in a few minutes.',
   },
 ];
 
-/** Marker spots in the half-bar's own space: the slab runs from x = -0.7 to the
- *  cut face at x = 0, with the moulded squares on top. */
+/** Marker spots in the half-bar's own space. The scan is small in its own units:
+ *  the slab runs from x = -0.5 back to the snapped face at x = 0, is about 0.53
+ *  across in z, and its moulded top sits near y = 0.07. */
 const SPOTS: Record<string, [number, number, number]> = {
-  sugar: [0.06, 0, 0], // dead centre of the cut face
-  cocoa: [-0.35, 0.24, -0.33], // a moulded square on top
-  fat: [-0.35, 0.24, 0.3], // another square, nearer the front
-  foil: [-0.36, -0.2, 0.58], // the sliver of wrapper underneath
+  sugar: [0.015, -0.012, 0], // dead centre of the snapped face
+  cocoa: [-0.26, 0.085, -0.14], // a moulded square on top
+  fat: [-0.13, 0.085, 0.14], // another square, nearer the front
+  energy: [-0.42, 0.085, -0.02], // the far end of the bar
 };
 
 function Scene({
@@ -55,10 +57,12 @@ function Scene({
   select: (id: string | null) => void;
 }) {
   return (
-    // Turned the other way round from before: the cut face's normal runs along
-    // +x, so a positive turn about y swung it away from the camera and hid it.
-    <group position={[0.15, 0, 0]} rotation={[0.42, -0.55, 0]} scale={2.15}>
-      <ChocolateHalf />
+    // The snapped face's normal runs along +x, and a quarter turn back about y
+    // brings it round to face the camera. The extra offset keeps the bar's length
+    // receding into the picture rather than showing it edge-on, which for
+    // something this thin would read as a sliver.
+    <group rotation={[0.4, -Math.PI / 2 + 0.5, 0]} scale={3.0}>
+      <ChocolateBarHalfGeometry isLeft={false} />
       {FACTS.map((f) => (
         <Hotspot
           key={f.id}
@@ -67,7 +71,7 @@ function Scene({
           color={f.color}
           active={active}
           onSelect={select}
-          scale={0.42}
+          scale={0.5}
         />
       ))}
     </group>
