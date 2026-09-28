@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Star, Leaf, Candy, Search } from 'lucide-react';
+import { Star, Leaf, Candy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FOODS } from '../data/nutritionData';
 import { nextRequiredCategory, useGameStore } from '../store/gameStore';
 import BackButton from '../components/BackButton';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
+
+const PAGE_SIZE = 8;
 
 export default function FoodSelect() {
   const navigate = useNavigate();
@@ -13,9 +15,13 @@ export default function FoodSelect() {
   const lastCategoryPlayed = useGameStore((s) => s.lastCategoryPlayed);
   const selectFood = useGameStore((s) => s.selectFood);
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
 
   const required = nextRequiredCategory(lastCategoryPlayed);
   const visibleFoods = FOODS.filter((f) => f.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const totalPages = Math.max(1, Math.ceil(visibleFoods.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <div className="screen" style={{ background: 'linear-gradient(160deg, #eafff2 0%, #ffffff 100%)' }}>
@@ -77,7 +83,10 @@ export default function FoodSelect() {
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(0);
+          }}
           placeholder="Search foods…"
           aria-label="Search foods"
           data-tour="food-search"
@@ -100,7 +109,9 @@ export default function FoodSelect() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${visibleFoods.length || 1}, minmax(0, 1fr))`,
+          // Capped at four across: the library is long enough now that one column
+          // per food would squeeze every card down to a sliver on a laptop.
+          gridTemplateColumns: `repeat(${Math.min(pageItems.length || 1, 4)}, minmax(0, 1fr))`,
           gap: 16,
           maxWidth: 960,
           width: '100%',
@@ -113,7 +124,7 @@ export default function FoodSelect() {
             No foods match "{query}".
           </p>
         )}
-        {visibleFoods.map((food, i) => {
+        {pageItems.map((food, i) => {
           const locked = required !== null && food.category !== required;
           return (
             <motion.button
@@ -141,7 +152,7 @@ export default function FoodSelect() {
                 border: 'none',
               }}
             >
-              <FoodThumbnail3D foodId={food.id} size={88} />
+              <FoodThumbnail3D foodId={food.id} size={100} scale={0.85} />
               <div style={{ fontWeight: 700 }}>{food.name}</div>
               <div
                 style={{
@@ -156,6 +167,66 @@ export default function FoodSelect() {
           );
         })}
       </div>
+
+      {totalPages > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 18,
+            marginTop: 22,
+          }}
+        >
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            aria-label="Previous foods"
+            disabled={safePage === 0}
+            onClick={() => setPage(Math.max(0, safePage - 1))}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 999,
+              border: '1.5px solid rgba(0,0,0,0.08)',
+              background: safePage === 0 ? 'rgba(0,0,0,0.04)' : '#ffffff',
+              color: safePage === 0 ? 'var(--ink-soft)' : 'var(--green-dark)',
+              cursor: safePage === 0 ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: safePage === 0 ? 'none' : '0 6px 18px rgba(0,0,0,0.08)',
+            }}
+          >
+            <ChevronLeft size={22} strokeWidth={2.6} />
+          </motion.button>
+
+          <span style={{ fontWeight: 800, color: 'var(--ink-soft)', fontSize: '0.95rem' }}>
+            {safePage + 1} / {totalPages}
+          </span>
+
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            aria-label="Next foods"
+            disabled={safePage >= totalPages - 1}
+            onClick={() => setPage(Math.min(totalPages - 1, safePage + 1))}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 999,
+              border: '1.5px solid rgba(0,0,0,0.08)',
+              background: safePage >= totalPages - 1 ? 'rgba(0,0,0,0.04)' : '#ffffff',
+              color: safePage >= totalPages - 1 ? 'var(--ink-soft)' : 'var(--green-dark)',
+              cursor: safePage >= totalPages - 1 ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: safePage >= totalPages - 1 ? 'none' : '0 6px 18px rgba(0,0,0,0.08)',
+            }}
+          >
+            <ChevronRight size={22} strokeWidth={2.6} />
+          </motion.button>
+        </div>
+      )}
     </div>
   );
 }

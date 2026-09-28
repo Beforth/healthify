@@ -10,11 +10,14 @@ import BackButton from '../components/BackButton';
 import Celebration from '../components/Celebration';
 import BodyEffect from '../components/BodyEffect';
 import FoodCanvas from '../game/food3d/FoodCanvas';
+import FitScale from '../game/food3d/FitScale';
 import Knife3D from '../game/food3d/Knife3D';
 import SliceImpact from '../game/food3d/SliceImpact';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
 import DragRotate from '../game/food3d/DragRotate';
-import { FOOD_MODELS, FOOD_CROSS_SECTIONS } from '../game/food3d/foodRegistry';
+import FlatCutStage from '../components/FlatCutStage';
+import FlatCrossSection from '../game/micro/FlatCrossSection';
+import { FOOD_MODELS, FOOD_CROSS_SECTIONS, foodSizeOf } from '../game/food3d/foodRegistry';
 
 const topicMeta: Record<QuizTopic, { label: string; icon: typeof Droplet; color: string }> = {
   fat: { label: 'Fat', icon: Droplet, color: '#4dd6ff' },
@@ -22,6 +25,18 @@ const topicMeta: Record<QuizTopic, { label: string; icon: typeof Droplet; color:
   calories: { label: 'Calories', icon: Flame, color: '#ff8c42' },
   vitamins: { label: 'Vitamins & Minerals', icon: Citrus, color: '#8bd450' },
 };
+
+/** Foods that never get a cutting beat — a dal, a can or a crisp is something you
+ *  prepare, not slice open, so the play screen shows them whole with no knife and
+ *  lets the child go straight to the microscope. */
+const NO_CUT_FOODS = new Set([
+  'masoor-dal',
+  'toor-dal',
+  'chana-dal',
+  'soybeans',
+  'soft-drink',
+  'potato-chips',
+]);
 
 export default function GameScreen() {
   const { foodId } = useParams<{ foodId: string }>();
@@ -79,8 +94,14 @@ export default function GameScreen() {
 
   const availableTopics = Array.from(new Set(food.quiz.map((q) => q.topic)));
   const quizQuestion = food.quiz.find((q) => q.topic === selectedTopic);
+  // Only some foods have a hand-built 3D model; the rest cut and zoom as flat art
+  // rather than shipping a mesh that looks nothing like the modelled ones.
   const FoodModel = FOOD_MODELS[food.id];
   const CrossSection = FOOD_CROSS_SECTIONS[food.id];
+  // A handful of foods skip the cut beat entirely — they show whole and jump to
+  // the microscope, so the cut stage behaves as if the cut were already done.
+  const noCut = NO_CUT_FOODS.has(food.id);
+  const isCut = cut || noCut;
 
   const handleAutoCut = () => {
     if (cut || isCuttingAuto.current) return;
@@ -429,10 +450,12 @@ export default function GameScreen() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 700, color: '#1c6b48' }}>
-                    <Hand size={16} color="#1c6b48" /> Drag down to cut
+                    <Hand size={16} color="#1c6b48" />{' '}
+                    {noCut ? 'No cutting needed — just peek inside' : FoodModel ? 'Drag down to cut' : 'Tap the button to cut'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 600, color: '#387853' }}>
-                    <span style={{ fontSize: '1rem', lineHeight: 1 }}>🔪</span> Move slowly for best results
+                    <span style={{ fontSize: '1rem', lineHeight: 1 }}>🔪</span>{' '}
+                    {noCut ? 'It stays whole the whole time' : FoodModel ? 'Move slowly for best results' : 'Watch it fall right through'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 600, color: '#387853' }}>
                     <Sparkles size={16} color="#10b981" /> Watch for the cool effects!
@@ -450,28 +473,47 @@ export default function GameScreen() {
                   marginBottom: -32,
                 }}
               >
-                <FoodCanvas
-                  height="clamp(340px, 56vh, 660px)"
-                  width="100%"
-                  showPedestal
-                  autoRotate={false}
-                  controlsEnabled={false}
-                >
-                  {/* Only the food spins in place when dragged — the knife and pedestal
-                      never move, since the camera itself stays fixed the whole time. */}
-                  <DragRotate>
-                    <FoodModel cutProgressRef={cutProgressRef} />
-                  </DragRotate>
-                  <Knife3D
-                    progressRef={cutProgressRef}
-                    disabled={cut}
-                    onComplete={() => {
-                      setCut(true);
-                      setFlashKey((k) => k + 1);
+                {FoodModel ? (
+                  <FoodCanvas
+                    height="clamp(340px, 56vh, 660px)"
+                    width="100%"
+                    showPedestal
+                    autoRotate={false}
+                    controlsEnabled={false}
+                  >
+                    {/* Only the food spins in place when dragged — the knife and pedestal
+                        never move, since the camera itself stays fixed the whole time. */}
+                    <DragRotate>
+                      {/* fitted to the food's own target size so every food fills
+                          the space it wants, sized per-food not off a reference */}
+                      <FitScale target={foodSizeOf(food.id)}>
+                        <FoodModel cutProgressRef={cutProgressRef} />
+                      </FitScale>
+                    </DragRotate>
+                    {!noCut && (
+                      <Knife3D
+                        progressRef={cutProgressRef}
+                        disabled={isCut}
+                        onComplete={() => {
+                          setCut(true);
+                          setFlashKey((k) => k + 1);
+                        }}
+                      />
+                    )}
+                    {flashKey > 0 && <SliceImpact key={flashKey} />}
+                  </FoodCanvas>
+                ) : (
+                  <div
+                    style={{
+                      height: 'clamp(340px, 56vh, 660px)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
-                  />
-                  {flashKey > 0 && <SliceImpact key={flashKey} />}
-                </FoodCanvas>
+                  >
+                    <FlatCutStage foodId={food.id} cut={cut} size={280} />
+                  </div>
+                )}
               </div>
 
               {/* Bottom Action: DRAG TO CUT pill button or Inspect under Microscope */}
@@ -485,7 +527,7 @@ export default function GameScreen() {
                   zIndex: 10,
                 }}
               >
-                {!cut ? (
+                {!isCut ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     {/* Left side action dashes */}
                     <div style={{ display: 'flex', gap: 4, opacity: 0.75 }}>
@@ -513,7 +555,7 @@ export default function GameScreen() {
                         boxShadow: '0 8px 24px rgba(28, 107, 72, 0.38)',
                       }}
                     >
-                      <Hand size={20} /> DRAG TO CUT
+                      <Hand size={20} /> {FoodModel ? 'DRAG TO CUT' : 'TAP TO CUT'}
                     </motion.button>
 
                     {/* Right side action dashes */}
@@ -576,11 +618,11 @@ export default function GameScreen() {
                   border: '1px solid rgba(46, 204, 113, 0.2)',
                 }}
               >
-                <Microscope size={19} /> Microscopic 3D Cut View: {food.name}
+                <Microscope size={19} /> Microscopic {CrossSection ? '3D ' : ''}Cut View: {food.name}
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <CrossSection />
+                {CrossSection ? <CrossSection /> : <FlatCrossSection foodId={food.id} />}
               </div>
 
               <div
