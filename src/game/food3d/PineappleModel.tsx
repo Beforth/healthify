@@ -4,6 +4,8 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCutKick } from './useCutKick';
 import { sliceAtX, type SlicedHalf } from './sliceMesh';
+import { bandExtent, bodyBands, fleshStrip, onFlesh } from './pineappleCut';
+import { buildFleshMaps, dropletSpots } from './pineappleFlesh';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/pineapple.glb`;
 
@@ -11,118 +13,53 @@ const MODEL_URL = `${import.meta.env.BASE_URL}models/pineapple.glb`;
  *  standing upright. Roughly the bottom half is fruit and the top half crown. */
 const SCALE = 2.4;
 
-/** Where the fruit stops and the crown starts, measured off the scan: below this
- *  the cut is one clean closed body, above it the plane is passing through a
- *  tangle of separate leaf blades. */
-const CROWN_Y = 0.02;
-
 /** Sampled off the scan for the skin, and off a real cut pineapple for the parts
- *  the scan cannot know about — it is only a shell, so the inside is invented. */
-const RIND = '#a8791f';
-const FLESH = '#e9a71b';
-const CORE = '#f2d27a';
+ *  the scan cannot know about — it is only a shell, so the inside is invented.
+ *  The rind is a dark tan-brown rim: it has to read as hard and dry against the
+ *  wet gold right next to it, which is the whole contrast of a cut pineapple. */
+const RIND = '#8a5f18';
 
 useGLTF.preload(MODEL_URL);
 
-interface Band {
-  y: number;
-  z0: number;
-  z1: number;
-}
+/** How big the flesh is generated at. Sharp enough to hold the cell structure
+ *  when the face is seen at an angle, small enough that generating it is a
+ *  one-off cost rather than a pause. */
+const FLESH_SIZE = 512;
+
+type FleshTextures = { map: THREE.DataTexture; roughnessMap: THREE.DataTexture };
+let fleshTextures: FleshTextures | null = null;
 
 /**
- * The fruit body's silhouette, as a left and right edge sampled up its height.
+ * The flesh, as textures.
  *
- * The biscuit and the bar both cap their cut with a fan around the outline's
- * middle, which works because their outlines are smooth and convex. A pineapple
- * is neither: its skin is knobbly, so neighbouring outline points sit at the same
- * angle but different distances and the fan zigzags. Sampling one left and one
- * right edge per height band instead gives an outline that can only ever go up.
+ * One set for the whole app, built on first use. Both halves of a cut and the
+ * microscope's own copy read off the same pixels, and — the reason this is not
+ * just a `useMemo` — the same GPU upload. A memo per component would have every
+ * face upload its own megabyte of identical data, and none of them would ever be
+ * disposed anyway, since the fruit outlives any one of them.
+ *
+ * Mipmaps and anisotropy are worth the memory here: a cut face is seen almost
+ * edge-on, and without them the fibres and cells dissolve into shimmer the moment
+ * the fruit turns.
  */
-function bodyBands(outline: { y: number; z: number }[], count: number): Band[] {
-  const points = outline.filter((p) => p.y <= CROWN_Y);
-  if (points.length < 6) return [];
-
-  let yMin = Infinity;
-  let yMax = -Infinity;
-  for (const p of points) {
-    if (p.y < yMin) yMin = p.y;
-    if (p.y > yMax) yMax = p.y;
+function getFleshTextures(): FleshTextures {
+  if (!fleshTextures) {
+    const { albedo, roughness } = buildFleshMaps(FLESH_SIZE);
+    const make = (data: Uint8ClampedArray, srgb: boolean) => {
+      const t = new THREE.DataTexture(data, FLESH_SIZE, FLESH_SIZE, THREE.RGBAFormat);
+      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      t.wrapS = THREE.ClampToEdgeWrapping;
+      t.wrapT = THREE.ClampToEdgeWrapping;
+      t.minFilter = THREE.LinearMipmapLinearFilter;
+      t.magFilter = THREE.LinearFilter;
+      t.generateMipmaps = true;
+      t.anisotropy = 8;
+      t.needsUpdate = true;
+      return t;
+    };
+    fleshTextures = { map: make(albedo, true), roughnessMap: make(roughness, false) };
   }
-  const span = yMax - yMin;
-  if (span <= 0) return [];
-
-  const lo = new Array<number>(count).fill(Infinity);
-  const hi = new Array<number>(count).fill(-Infinity);
-  for (const p of points) {
-    const i = Math.min(count - 1, Math.floor(((p.y - yMin) / span) * count));
-    if (p.z < lo[i]) lo[i] = p.z;
-    if (p.z > hi[i]) hi[i] = p.z;
-  }
-
-  const raw: Band[] = [];
-  for (let i = 0; i < count; i++) {
-    if (lo[i] === Infinity) continue;
-    raw.push({ y: yMin + (span * (i + 0.5)) / count, z0: lo[i], z1: hi[i] });
-  }
-  if (raw.length < 2) return [];
-
-  // Each band takes the single widest point it happened to catch, and on skin
-  // this knobbly that alone staircases visibly. Averaging each edge with its
-  // neighbours keeps the fruit's bulge but loses the jitter.
-  const bands = raw.map((band, i) => {
-    let z0 = 0;
-    let z1 = 0;
-    let n = 0;
-    for (let k = -2; k <= 2; k++) {
-      const other = raw[i + k];
-      if (!other) continue;
-      z0 += other.z0;
-      z1 += other.z1;
-      n++;
-    }
-    return { y: band.y, z0: z0 / n, z1: z1 / n };
-  });
-
-  // The first and last samples sit half a band in from the real ends, which
-  // would leave the cap with a flat lip top and bottom. Run it out to the true
-  // extremes, narrowing as it goes so the fruit rounds off instead.
-  const first = bands[0];
-  const last = bands[bands.length - 1];
-  const pinch = (b: Band, y: number): Band => {
-    const mid = (b.z0 + b.z1) / 2;
-    const half = ((b.z1 - b.z0) / 2) * 0.82;
-    return { y, z0: mid - half, z1: mid + half };
-  };
-  return [pinch(first, yMin), ...bands, pinch(last, yMax)];
-}
-
-/** Fills between the two edges. `kz` narrows each band about its own middle and
- *  `ky` shortens the whole run, which is how the inner layers are inset. */
-function bandStrip(bands: Band[], kz: number, ky: number): THREE.BufferGeometry | null {
-  if (bands.length < 2) return null;
-
-  const yMid = (bands[0].y + bands[bands.length - 1].y) / 2;
-  const shaped = bands.map((b) => {
-    const mid = (b.z0 + b.z1) / 2;
-    const half = ((b.z1 - b.z0) / 2) * kz;
-    return { y: yMid + (b.y - yMid) * ky, z0: mid - half, z1: mid + half };
-  });
-
-  const positions: number[] = [];
-  for (let i = 0; i + 1 < shaped.length; i++) {
-    const a = shaped[i];
-    const b = shaped[i + 1];
-    positions.push(
-      0, a.y, a.z0, 0, a.y, a.z1, 0, b.y, b.z1,
-      0, a.y, a.z0, 0, b.y, b.z1, 0, b.y, b.z0,
-    );
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  return geo;
+  return fleshTextures;
 }
 
 /**
@@ -131,36 +68,104 @@ function bandStrip(bands: Band[], kz: number, ky: number): THREE.BufferGeometry 
  * Only the fruit is capped. The crown is a loose bunch of blades rather than one
  * solid thing, so there is no single opening up there to close — the leaves are
  * drawn double-sided instead, which reads as a blade seen edge-on.
+ *
+ * The face itself is not layered. A pineapple cut lengthwise is one continuous
+ * wet surface with a pale core running up the middle of it, and painting that as
+ * three stacked discs made it look like a boiled egg — so the whole interior is
+ * a single cap wearing a generated texture of the real thing, and the only
+ * geometry left is the thin brown rim of rind around it.
  */
 function CutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
-  const layers = useMemo(() => {
+  const textures = getFleshTextures();
+
+  const { rind, flesh, beads } = useMemo(() => {
     const bands = bodyBands(half.outline, 34);
+    if (bands.length < 2) {
+      return { rind: null, flesh: null, beads: [] as { y: number; z: number; r: number; glint: number }[] };
+    }
+
+    // where the face is, so the juice can be placed in its own units
+    const { yMin, yMax, zMin, zMax } = bandExtent(bands);
+    const spanY = Math.max(1e-6, yMax - yMin);
+    const spanZ = Math.max(1e-6, zMax - zMin);
+
+    const beads = dropletSpots()
+      .map((s) => ({
+        y: yMin + s.v * spanY,
+        z: zMin + s.u * spanZ,
+        r: s.r * spanZ,
+        glint: s.glint,
+      }))
+      .filter((b) => onFlesh(bands, b.y, b.z));
+
     return {
-      rind: bandStrip(bands, 1, 1),
-      flesh: bandStrip(bands, 0.88, 0.94),
-      core: bandStrip(bands, 0.2, 0.7),
+      rind: fleshStrip(bands, 1, 1),
+      // addressed against the full silhouette, not against its own inset
+      flesh: fleshStrip(bands, 0.9, 0.96, bands),
+      beads,
     };
   }, [half.outline]);
 
-  if (!layers.rind) return null;
+  if (!rind || !flesh) return null;
 
-  // each layer stands a little further out of the opening than the one under it,
-  // so they stack front to back instead of fighting for the same depth
   return (
     <group>
-      <mesh geometry={layers.rind} position={[faceSign * 0.004, 0, 0]}>
+      <mesh geometry={rind} position={[faceSign * 0.004, 0, 0]}>
         <meshStandardMaterial color={RIND} roughness={0.9} side={THREE.DoubleSide} />
       </mesh>
-      {layers.flesh && (
-        <mesh geometry={layers.flesh} position={[faceSign * 0.006, 0, 0]}>
-          <meshStandardMaterial color={FLESH} roughness={0.72} side={THREE.DoubleSide} />
+      <mesh geometry={flesh} position={[faceSign * 0.006, 0, 0]}>
+        {/* Roughness comes entirely from the map, so `roughness` stays at 1 and
+            the wettest and driest parts of the face are the ones the generator
+            found, not one flat value over all of it. */}
+        <meshPhysicalMaterial
+          map={textures.map}
+          roughnessMap={textures.roughnessMap}
+          roughness={1}
+          metalness={0}
+          ior={1.35}
+          // The flesh is a slab of water and cells a few millimetres deep, so a
+          // little light comes through the front of it rather than bouncing off.
+          // This is the whole of the subsurface effect: there is no scattering
+          // term in the renderer, only the transmission and the glow below.
+          transmission={0.22}
+          thickness={0.3}
+          attenuationColor="#f2a81c"
+          attenuationDistance={0.55}
+          // the juice film on top, and the warm bleed of light out of the fruit
+          clearcoat={0.4}
+          clearcoatRoughness={0.1}
+          emissive="#ffcf6a"
+          emissiveMap={textures.map}
+          emissiveIntensity={0.11}
+          envMapIntensity={1.15}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* The juice standing on the face. Painted beads can only ever be white
+          dots; a bead is a clear lens sitting on the flesh, and what sells it is
+          the hard little highlight the environment throws along its curve. */}
+      {beads.map((b, i) => (
+        <mesh
+          key={i}
+          position={[faceSign * 0.008, b.y, b.z]}
+          scale={[0.55, 1, 1]}
+        >
+          <sphereGeometry args={[b.r, 12, 10]} />
+          <meshPhysicalMaterial
+            color="#fff6dc"
+            roughness={0.03}
+            metalness={0}
+            ior={1.33}
+            clearcoat={1}
+            clearcoatRoughness={0.02}
+            transparent
+            opacity={0.45 + b.glint * 0.25}
+            envMapIntensity={2.4 + b.glint * 1.2}
+            depthWrite={false}
+          />
         </mesh>
-      )}
-      {layers.core && (
-        <mesh geometry={layers.core} position={[faceSign * 0.008, 0, 0]}>
-          <meshStandardMaterial color={CORE} roughness={0.8} side={THREE.DoubleSide} />
-        </mesh>
-      )}
+      ))}
     </group>
   );
 }

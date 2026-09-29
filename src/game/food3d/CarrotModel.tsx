@@ -2,46 +2,70 @@ import { useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useCutKick } from './useCutKick';
-import { buildHalfSolid } from './halfSolid';
+import { faceFrame, planarCap, type OutlinePoint } from './capGeo';
+import { cutTextures, fleshMaterialProps, type FleshLook } from './cutMaps';
+import { buildCarrotMaps } from './carrotFlesh';
+import { carrotHalf, carrotOutline, RADIUS } from './carrotShape';
 
-const RADIUS = 0.82;
+/** The shape of the root itself — its taper, its ribbing, its skin gradient — is
+ *  in `carrotShape`, so the cut face can be measured against it without dragging a
+ *  React tree into the question. */
 
-const SKIN_DEEP = new THREE.Color('#c9560c');
-const SKIN_ORANGE = new THREE.Color('#f0791a');
-const SKIN_LIGHT = new THREE.Color('#ff9f43');
+/** How big the cut face's image is generated. The face is a shade under 300 px of
+ *  canvas across its length, so anything much past this is generated, uploaded and
+ *  never seen — while anything much under it dissolves the moment the halves swing
+ *  open, since a cut face spends most of that swing nearly edge-on. */
+const TEXTURE = 512;
 
-/** Carrot silhouette: a long cone, widest at the crown and tapering to a point,
- *  with the shoulder rounded off on top. The cut runs down x = 0. */
-function deformCarrot(p: THREE.Vector3, ny: number) {
-  const natural = Math.sqrt(Math.max(1e-4, 1 - ny * ny));
-  // 0 at the tip, 1 at the crown
-  const t = THREE.MathUtils.clamp((ny + 1) / 2, 0, 1);
+/** A split carrot is wet — about 88% water — but it is a firm, dense vegetable
+ *  rather than a glassy fruit, so the subsurface is a whisper and the whole of the
+ *  look is the film on top. `clearcoatRoughness` is what keeps that film from
+ *  reading as a glaze: at the pineapple's 0.1 the same numbers look like lacquer,
+ *  and the whole point here is a cut root that is damp rather than shiny. */
+const FLESH_LOOK: FleshLook = {
+  transmission: 0.14,
+  thickness: 0.05,
+  attenuation: '#c85a10',
+  attenuationDistance: 0.14,
+  clearcoat: 0.45,
+  clearcoatRoughness: 0.3,
+  emissive: '#e8721c',
+  emissiveIntensity: 0.05,
+  envMapIntensity: 0.85,
+  ior: 1.42,
+};
 
-  // A near-linear taper is what makes it a root rather than a fruit; the
-  // exponent keeps a touch of belly so it doesn't look machined.
-  const taper = Math.pow(t, 0.44);
-  // round the very top over instead of leaving a flat-cut cylinder
-  const shoulder = Math.sqrt(Math.max(0, 1 - Math.pow(Math.max(0, (t - 0.88) / 0.12), 2)));
-  const k = (taper * shoulder) / natural;
+/**
+ * The flat face left behind by the cut, as one cap wearing the whole interior.
+ *
+ * It used to be four flat-coloured discs stacked a few thousandths of a unit apart,
+ * which is how a boiled egg gets built: a skin rim, a bright flesh disc, a pale
+ * core disc, and four little cylinders for growth rings. The stacking was the only
+ * way to keep four coplanar meshes from z-fighting, and it left two artefacts — a
+ * visible seam down the middle of the carrot while it was still whole, and an
+ * interior with no texture in it at all. One cap with a generated image of the real
+ * thing needs neither.
+ */
+function CutFace({ outline, faceSign }: { outline: OutlinePoint[]; faceSign: number }) {
+  const cut = useMemo(() => {
+    const maps = buildCarrotMaps(TEXTURE, outline);
+    return {
+      // Inset by 1% so the cap never pokes out through the skin. Kept shallow on
+      // purpose: the inset is radial, and the root's tip is a cusp where 2% of the
+      // distance to the middle is a visible nick. Anything the envelope over-covers
+      // at the point is hidden by the skin sitting in the same place.
+      geo: planarCap(faceFrame(outline), 0.99),
+      tex: cutTextures(`carrot:${TEXTURE}`, maps, TEXTURE),
+    };
+  }, [outline]);
 
-  p.x *= k * 0.56;
-  p.z *= k * 0.56;
-  p.y *= 1.55;
+  if (!cut.geo) return null;
 
-  // a slight lean toward the tip, so it reads as something grown, not turned on a lathe
-  p.z += 0.14 * (1 - t) * (1 - t);
-}
-
-function carrotColor(_p: THREE.Vector3, ny: number, target: THREE.Color) {
-  const t = THREE.MathUtils.clamp((ny + 1) / 2, 0, 1);
-
-  // deeper at the tip, brighter toward the crown
-  target.copy(SKIN_DEEP).lerp(SKIN_ORANGE, THREE.MathUtils.smoothstep(t, 0.05, 0.6));
-  target.lerp(SKIN_LIGHT, THREE.MathUtils.smoothstep(t, 0.55, 1) * 0.55);
-
-  // faint horizontal banding, the marks a carrot carries where rootlets grew
-  const band = 0.5 + 0.5 * Math.cos(ny * 34);
-  target.lerp(SKIN_DEEP, band * 0.14);
+  return (
+    <mesh geometry={cut.geo} position={[faceSign * 0.004, 0, 0]}>
+      <meshPhysicalMaterial {...fleshMaterialProps(cut.tex, FLESH_LOOK)} />
+    </mesh>
+  );
 }
 
 /** Feathery carrot tops, built from a few tapered blades. */
@@ -95,61 +119,66 @@ export function CarrotHalfGeometry({
   isLeft?: boolean;
   showTops?: boolean;
 }) {
-  const { skinGeo, cutGeo } = useMemo(
-    () => buildHalfSolid(isLeft, RADIUS, deformCarrot, carrotColor),
-    [isLeft],
-  );
+  const { skinGeo, outline } = useMemo(() => {
+    const half = carrotHalf(isLeft);
+    return { skinGeo: half.skinGeo, outline: carrotOutline(half) };
+  }, [isLeft]);
 
   const faceSign = isLeft ? -1 : 1;
-  // the growth rings a carrot shows once it is sliced open
-  const rings = useMemo(() => [0.62, 0.2, -0.24, -0.66], []);
 
   return (
     <group>
       <mesh geometry={skinGeo} castShadow receiveShadow>
         <meshPhysicalMaterial
           vertexColors
-          roughness={0.42}
-          clearcoat={0.3}
-          clearcoatRoughness={0.4}
+          roughness={0.48}
+          clearcoat={0.25}
+          clearcoatRoughness={0.45}
           envMapIntensity={0.9}
         />
       </mesh>
 
-      {/* flat cut face: thin skin rim, bright flesh, then the pale core down the middle */}
-      <group position={[faceSign * 0.004, 0, 0]}>
-        {/* rim sits flush with the skin — scaling it up would poke out and show as a
-            seam line down the middle while the carrot is still whole */}
-        <mesh geometry={cutGeo}>
-          <meshStandardMaterial color="#d15c0c" roughness={0.55} side={THREE.DoubleSide} />
-        </mesh>
-        <mesh geometry={cutGeo} position={[faceSign * 0.008, 0, 0]} scale={[1, 0.97, 0.9]}>
-          <meshStandardMaterial color="#ffa74f" roughness={0.6} side={THREE.DoubleSide} />
-        </mesh>
-
-        {/* the core: a pale strip running the length of the root */}
-        <mesh geometry={cutGeo} position={[faceSign * 0.014, -0.02, 0]} scale={[1, 0.9, 0.34]}>
-          <meshStandardMaterial color="#ffc978" roughness={0.7} side={THREE.DoubleSide} />
-        </mesh>
-
-        {rings.map((y, i) => (
-          <mesh key={i} position={[faceSign * 0.02, y, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.006, 0.006, 0.34 * (1 - Math.abs(y) * 0.6), 6]} />
-            <meshStandardMaterial color="#e07a1c" roughness={0.9} />
-          </mesh>
-        ))}
-      </group>
+      <CutFace outline={outline} faceSign={faceSign} />
 
       {showTops && <CarrotTops />}
     </group>
   );
 }
 
+/**
+ * How the root lies on each screen.
+ *
+ * The picker has always shown it on the diagonal, which frames a long root well
+ * inside a square thumbnail. But a diagonal also turns the cut face about 80° away
+ * from the camera, so on the board — the one screen where the cut is the entire
+ * point — the interior was edge-on until the player dragged it round. The two
+ * screens want different things and there is no pose that does both, so each gets
+ * its own.
+ *
+ * The board pose lays the root across the frame with its length horizontal and tips
+ * the face up toward the camera: measured against the cut stage's own camera at
+ * `[0, 1.25, 5.6]`, this shows 90% of the face where the diagonal showed 15%. 0.95
+ * rather than a full quarter turn, because 26° off the view axis still reads as a
+ * solid object with depth behind the face, and it keeps the two halves' separation
+ * mostly in-plane — tip it further and they part toward and away from the camera
+ * instead of visibly opening.
+ *
+ * `lift` is only needed on the picker. The cut stage seats its food on the board by
+ * measuring the model's own lowest point, which cancels any offset the model
+ * carries, so lifting the root there would just float it.
+ */
+const POSES: Record<'picker' | 'cut', { rotation: [number, number, number]; lift: number }> = {
+  picker: { rotation: [0.05, 0, 0.78], lift: 0.12 },
+  cut: { rotation: [0.95, 0, Math.PI / 2], lift: 0 },
+};
+
 export default function CarrotModel({
   cutProgressRef,
+  stage = 'picker',
 }: {
   cutProgressRef: MutableRefObject<number>;
   cutAngle?: number;
+  stage?: 'picker' | 'cut';
 }) {
   const outer = useRef<THREE.Group>(null);
   const innerA = useRef<THREE.Group>(null);
@@ -158,14 +187,15 @@ export default function CarrotModel({
   const squish = useRef(0);
   const [hovered, setHovered] = useState(false);
   const tickKick = useCutKick(cutProgressRef);
+  const pose = POSES[stage];
 
   useFrame((state, delta) => {
     progress.current = THREE.MathUtils.damp(progress.current, cutProgressRef.current, 25, delta);
     const p = progress.current;
     const kick = tickKick(delta);
-    // The halves part along the carrot's own tilted axis, so every bit of
-    // separation also costs height on screen — kept modest so a bigger carrot
-    // still clears the canvas edge once it is open.
+    // The halves part along the carrot's own axis, so every bit of separation also
+    // costs height on screen — kept modest so a bigger carrot still clears the
+    // canvas edge once it is open.
     const sep = p * 0.42 + kick * 0.28;
 
     if (innerA.current) {
@@ -203,10 +233,7 @@ export default function CarrotModel({
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      {/* laid over at an angle so a long root still fits the same framing as the
-          rounder foods, and the greens stay clear of the resting knife; lifted
-          a touch so the tip does not run off the bottom of the stage */}
-      <group position={[0, 0.12, 0]} rotation={[0.05, 0, 0.78]}>
+      <group position={[0, pose.lift, 0]} rotation={pose.rotation}>
         <group ref={innerA}>
           <CarrotHalfGeometry isLeft showTops />
         </group>

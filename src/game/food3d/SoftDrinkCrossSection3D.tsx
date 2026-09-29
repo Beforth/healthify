@@ -1,6 +1,7 @@
+import { useRef } from 'react';
 import { Candy, Flame, Sparkles, X } from 'lucide-react';
 import CrossSectionShell, { type CrossSectionFact } from './CrossSectionShell';
-import { SoftDrinkHalfGeometry } from './SoftDrinkModel';
+import { SoftDrinkWholeGeometry } from './SoftDrinkModel';
 import Hotspot from './Hotspot';
 import { MICRO } from '../micro/microStructures';
 
@@ -39,14 +40,14 @@ const FACTS: CrossSectionFact[] = [
   },
 ];
 
-/** Marker spots on the cut face, in the scan's own space: the can runs from
- *  y = -0.5 to y = 0.5, and x is a hair positive so each dot floats just proud
- *  of the flat silver interior. */
+/** Marker spots on the can, in the scan's own space: the can runs from y = -0.5
+ *  to y = 0.5 and is about 0.26 in radius, so these sit just proud of the wall on
+ *  the near side rather than on a cut face — there isn't one. */
 const SPOTS: Record<string, [number, number, number]> = {
-  sugar: [0.03, -0.15, 0.05], // mid can, the open cola
-  nothing: [0.03, 0.22, 0.05], // upper wall
-  fizz: [0.03, 0.05, 0.2], // near the open rim
-  energy: [0.03, -0.38, 0.05], // down in the base
+  sugar: [0.1, -0.15, 0.26], // mid can, where the sugar water is
+  nothing: [0.2, 0.22, 0.14], // the empty upper wall
+  fizz: [0.12, 0.44, 0.18], // right under the open tab
+  energy: [0.1, -0.38, 0.26], // down in the base
 };
 
 function Scene({
@@ -56,9 +57,13 @@ function Scene({
   active: string | null;
   select: (id: string | null) => void;
 }) {
+  // Shown already open: the microscope is the second look at the can, and a can
+  // that had to be waited for again to get here would have nothing to say.
+  const openRef = useRef(1);
+
   return (
-    <group rotation={[0.05, -Math.PI / 2 + 0.3, 0]} scale={1.6}>
-      <SoftDrinkHalfGeometry isLeft={false} />
+    <group rotation={[0.05, -Math.PI / 2 + 0.3, 0]} scale={2.6}>
+      <SoftDrinkWholeGeometry openRef={openRef} />
       {FACTS.map((f) => (
         <Hotspot
           key={f.id}
@@ -67,7 +72,7 @@ function Scene({
           color={f.color}
           active={active}
           onSelect={select}
-          scale={0.5}
+          scale={0.42}
         />
       ))}
     </group>
@@ -79,6 +84,8 @@ export default function SoftDrinkCrossSection3D() {
     <CrossSectionShell
       facts={FACTS}
       micro={MICRO['soft-drink']}
+      // Never cut, so the panel names the can rather than a cut that never happened.
+      panelTitle="The whole can, in 3D"
       scene={(active, select) => <Scene active={active} select={select} />}
     />
   );

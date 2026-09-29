@@ -33,6 +33,10 @@ interface CrossSectionShellProps {
    *  function it gets the same selection and setter as `scene`, so a flat view
    *  can carry the same tappable markers a 3D one does. */
   flatView?: ReactNode | ((active: string | null, select: (id: string | null) => void) => ReactNode);
+  /** Overrides the left panel's heading. Foods that are never cut would otherwise
+   *  be captioned "Your cut" next to a model nobody cut open, so they name
+   *  themselves here instead. */
+  panelTitle?: string;
 }
 
 function PanelTitle({ children }: { children: ReactNode }) {
@@ -65,6 +69,7 @@ export default function CrossSectionShell({
   micro,
   scene,
   flatView,
+  panelTitle,
 }: CrossSectionShellProps) {
   // Deliberately starts empty. Pre-selecting a fact used to suppress the one line
   // of text that tells a child the thing is interactive at all.
@@ -99,7 +104,7 @@ export default function CrossSectionShell({
             border: '2px solid rgba(46, 204, 113, 0.22)',
           }}
         >
-          <PanelTitle>{scene ? 'Your cut, in 3D' : 'Your cut'}</PanelTitle>
+          <PanelTitle>{panelTitle ?? (scene ? 'Your cut, in 3D' : 'Your cut')}</PanelTitle>
           {scene ? (
             // No auto-rotate: the cut face should stay facing the viewer. Controls stay on
             // so they can still spin it by hand.

@@ -11,7 +11,9 @@ import { MICRO } from './microStructures';
  * burger took a different route through the app than an apple did. Only the left
  * panel differs: a cut icon instead of a cut mesh.
  *
- * Every number here comes straight off the client's sheet.
+ * A food listed here should have no entry in `FOOD_CROSS_SECTIONS` — the 3D screen
+ * is the one that gets shown, and two copies of the same facts would let them
+ * drift apart. Every number below comes straight off the client's sheet.
  */
 const FLAT_FACTS: Record<string, CrossSectionFact[]> = {
   corn: [
@@ -38,66 +40,6 @@ const FLAT_FACTS: Record<string, CrossSectionFact[]> = {
       tag: '≈218 mg',
       color: '#06d6a0',
       fact: '≈218 mg of potassium and ≈6 mg of Vitamin C in a 100 g helping.',
-    },
-  ],
-  burger: [
-    {
-      id: 'fat',
-      icon: <Droplet size={20} color="#4dd6ff" />,
-      name: 'The Fat',
-      tag: '≈10–15 g',
-      color: '#4dd6ff',
-      fact: 'One burger holds ≈10–15 g of fat, which is most of why it reaches ≈280–350 kcal.',
-    },
-    {
-      id: 'sodium',
-      icon: <Sparkles size={20} color="#e76f51" />,
-      name: 'The Salt',
-      tag: '≈600–900 mg',
-      color: '#e76f51',
-      fact: 'Sodium hides in the bun, the sauce and the patty all at once — ≈600–900 mg in one burger.',
-    },
-    {
-      id: 'sugar',
-      icon: <Candy size={20} color="#ff6b9d" />,
-      name: 'Hidden Sugar',
-      tag: '≈5–8 g',
-      color: '#ff6b9d',
-      fact: 'Nothing about a burger tastes sweet, and yet ≈5–8 g of sugar is in there.',
-    },
-    {
-      id: 'protein',
-      icon: <Zap size={20} color="#1c6b48" />,
-      name: 'Protein',
-      tag: '≈8–12 g',
-      color: '#06d6a0',
-      fact: 'There is real protein too — ≈8–12 g — along with ≈2–4 g of fibre.',
-    },
-  ],
-  milk: [
-    {
-      id: 'calcium',
-      icon: <Sparkles size={20} color="#8bd450" />,
-      name: 'Calcium',
-      tag: '≈300 mg',
-      color: '#06d6a0',
-      fact: '≈300 mg of calcium in one glass. Calcium is what your bones and teeth are built from.',
-    },
-    {
-      id: 'protein',
-      icon: <Zap size={20} color="#4dd6ff" />,
-      name: 'Protein',
-      tag: '≈8 g',
-      color: '#4dd6ff',
-      fact: '≈8 g of protein per glass, plus vitamins B12 and riboflavin and ≈350 mg of potassium.',
-    },
-    {
-      id: 'lactose',
-      icon: <Candy size={20} color="#ff6b9d" />,
-      name: 'Milk Sugar',
-      tag: '≈12 g',
-      color: '#ff6b9d',
-      fact: 'Milk has a natural sugar of its own called lactose — ≈12 g in a 250 ml glass.',
     },
   ],
   broccoli: [

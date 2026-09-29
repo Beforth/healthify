@@ -4,6 +4,9 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCutKick } from './useCutKick';
 import { sliceAtX, type SlicedHalf } from './sliceMesh';
+import { faceFrame, planarCap } from './capGeo';
+import { buildSweetPotatoMaps } from './sweetPotatoFlesh';
+import { cutTextures, fleshMaterialProps, type FleshLook } from './cutMaps';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/sweet-potato.glb`;
 
@@ -12,93 +15,46 @@ const MODEL_URL = `${import.meta.env.BASE_URL}models/sweet-potato.glb`;
  *  scan's knobbly, soil-stained skin is the only part worth copying. */
 const SCALE = 2.1;
 
-/** The inside is invented — the scan is only a shell — so the cut face keeps the
- *  same three tones the code-built root used: thin skin rim, dense orange
- *  flesh, then a slightly paler heart. */
-const RIM = '#9c4a18';
-const FLESH = '#f59a42';
-const HEART = '#ffb765';
+/** The inside is invented — the scan is only a shell — so the cut face is drawn as
+ *  one generated image: the dark skin it is actually wearing at that edge, the
+ *  flesh, the faint concentric rings, and the starchy film the cut has left on it.
+ *  That replaces three flat discs in three flat colours, which read as a boiled
+ *  egg. */
+const TEXTURE = 512;
+
+/** A cut root is a wet slab a few millimetres deep, so a little light comes
+ *  through the front of it, and what gets through has gone orange on the way. */
+const FLESH_LOOK: FleshLook = {
+  transmission: 0.18,
+  thickness: 0.06,
+  attenuation: '#c2560d',
+  attenuationDistance: 0.16,
+  clearcoat: 0.35,
+  clearcoatRoughness: 0.42,
+  emissive: '#c2551a',
+  emissiveIntensity: 0.06,
+  envMapIntensity: 0.7,
+  ior: 1.4,
+};
 
 useGLTF.preload(MODEL_URL);
 
-function cutCap(outline: { y: number; z: number }[], inset: number): THREE.BufferGeometry | null {
-  if (outline.length < 3) return null;
-
-  const cy = outline.reduce((sum, p) => sum + p.y, 0) / outline.length;
-  const cz = outline.reduce((sum, p) => sum + p.z, 0) / outline.length;
-
-  const positions: number[] = [];
-  for (let i = 0; i < outline.length; i++) {
-    const a = outline[i];
-    const b = outline[(i + 1) % outline.length];
-    positions.push(
-      0, cy, cz,
-      0, cy + (a.y - cy) * inset, cz + (a.z - cz) * inset,
-      0, cy + (b.y - cy) * inset, cz + (b.z - cz) * inset,
-    );
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  return geo;
-}
-
 function CutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
-  const layers = useMemo(
-    () => ({
-      rim: cutCap(half.outline, 0.97),
-      flesh: cutCap(half.outline, 0.92),
-      heart: cutCap(half.outline, 0.55),
-    }),
-    [half.outline],
-  );
+  // one cap, one texture, the whole interior in it
+  const cut = useMemo(() => {
+    const maps = buildSweetPotatoMaps(TEXTURE, half.outline);
+    return {
+      geo: planarCap(faceFrame(half.outline), 0.98),
+      tex: cutTextures(`sweet-potato:${TEXTURE}`, maps, TEXTURE),
+    };
+  }, [half.outline]);
 
-  // the pale fibrous flecks scattered through the flesh, sized for the scan's
-  // much smaller cut face
-  const flecks = useMemo(
-    () => [
-      { y: 0.06, z: 0.05 },
-      { y: 0.02, z: -0.08 },
-      { y: -0.04, z: 0.07 },
-      { y: -0.1, z: -0.03 },
-      { y: 0.11, z: -0.06 },
-    ],
-    [],
-  );
-
-  if (!layers.rim) return null;
+  if (!cut.geo) return null;
 
   return (
-    <group>
-      {/* rim sits flush with the skin — scaling it up would poke out and show as a
-          seam line down the middle while the root is still whole */}
-      <mesh geometry={layers.rim} position={[faceSign * 0.004, 0, 0]}>
-        <meshStandardMaterial color={RIM} roughness={0.7} side={THREE.DoubleSide} />
-      </mesh>
-      {layers.flesh && (
-        <mesh geometry={layers.flesh} position={[faceSign * 0.006, 0, 0]}>
-          <meshStandardMaterial color={FLESH} roughness={0.66} side={THREE.DoubleSide} />
-        </mesh>
-      )}
-      {layers.heart && (
-        <mesh geometry={layers.heart} position={[faceSign * 0.008, 0, 0]}>
-          <meshStandardMaterial color={HEART} roughness={0.7} side={THREE.DoubleSide} />
-        </mesh>
-      )}
-
-      {flecks.map((f, i) => (
-        <mesh
-          key={i}
-          position={[faceSign * 0.012, f.y, f.z]}
-          rotation={[0, 0, 0.4 + i * 0.3]}
-          scale={[0.4, 1, 1]}
-        >
-          <sphereGeometry args={[0.028, 10, 8]} />
-          <meshStandardMaterial color="#ffe0b0" roughness={0.85} />
-        </mesh>
-      ))}
-    </group>
+    <mesh geometry={cut.geo} position={[faceSign * 0.004, 0, 0]}>
+      <meshPhysicalMaterial {...fleshMaterialProps(cut.tex, FLESH_LOOK)} />
+    </mesh>
   );
 }
 
@@ -203,8 +159,14 @@ export default function SweetPotatoModel({
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      {/* tipped over so a long root reads as lying on the board */}
-      <group rotation={[0.05, 0, 0.72]}>
+      {/* Lying across the board with a gentle lean, and turned a little toward
+          the camera. The 0.2 about z is the lean — enough to read as a root set
+          down at an angle rather than laid out square. The 0.2 about y is the one
+          that earns its place: the cut face points along x, so with no turn toward
+          the camera the whole interior is edge-on and invisible, and the cut is
+          the entire point. A quarter turn like the cob's would overdo it and hide
+          the face again, so this is deliberately much less. */}
+      <group rotation={[0.05, 0.2, 0.2]}>
         <group ref={innerA}>
           <SweetPotatoHalfGeometry isLeft />
         </group>

@@ -1,170 +1,126 @@
 import { useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCutKick } from './useCutKick';
+import { sliceAtX, type SlicedHalf } from './sliceMesh';
+import { faceFrame, planarCap } from './capGeo';
+import { buildBurgerMaps, BURGER_LAYERS } from './burgerFlesh';
+import { cutTextures, fleshMaterialProps, type FleshLook } from './cutMaps';
 
-/** A hand-built burger, layered the way BurgerIcon draws it: a domed bun over
- *  lettuce, cheese and a thick patty, sitting on the base of the bun. Every
- *  layer is an open-ended half-cylinder sharing the x = 0 plane, so each one
- *  presents a clean flat face once cut; the top bun is capped by the top half
- *  of a sphere. The scale lives in JSX (not only in useFrame) so FitScale can
- *  measure it and fit it to the food's own target size. */
-const SCALE = 1.1;
+export { BURGER_LAYERS };
 
-const BUN = '#d9913a';
-const BUN_TOP = '#e8b26a';
-const BUN_CRUMB = '#f2d9a6';
-const PATTY = '#7b4526';
-const CHEESE = '#ffc93c';
-const LETTUCE = '#5cb85c';
-const SESAME = '#fff3d8';
-const SEAM = '#a45c24';
+const MODEL_URL = `${import.meta.env.BASE_URL}models/burger.glb`;
 
-/** Shared layout, bottom up. The cross-section screen reuses these numbers so
- *  its markers land on exactly the bands the cut screen shows. */
-export const BURGER_LAYERS = [
-  { id: 'bottom-bun', r: 1.0, y0: -0.52, y1: -0.18, color: BUN, roughness: 0.85 },
-  { id: 'patty', r: 0.95, y0: -0.18, y1: 0.12, color: PATTY, roughness: 0.95 },
-  { id: 'cheese', r: 1.06, y0: 0.12, y1: 0.22, color: CHEESE, roughness: 0.6 },
-  { id: 'lettuce', r: 1.0, y0: 0.22, y1: 0.34, color: LETTUCE, roughness: 0.8 },
-  { id: 'top-bun', r: 1.06, y0: 0.34, y1: 0.54, color: BUN_TOP, roughness: 0.9 },
-];
-export const BURGER_DOME = { r: 1.06, base: 0.54, top: 1.6 };
-export const BURGER_BOTTOM = -0.52;
+/** A photoscanned burger, about 0.47 x 0.40 x 0.50 in its own units, standing
+ *  upright on its base bun with the whole stack running up the y axis. That is
+ *  what makes a cut straight down x = 0 worth doing: the plane crosses every
+ *  layer, so the face it leaves behind is the burger's own cross-section. */
+const SCALE = 1.6;
 
-type BurgerLayer = (typeof BURGER_LAYERS)[number];
+const TEXTURE = 512;
 
-/** A half-cylinder shell for one layer, sitting on the isLeft-chosen side of
- *  the x = 0 plane. Open-ended so the cut face is its own flat opening. */
-function HalfCylinder({ layer, dir }: { layer: BurgerLayer; dir: 1 | -1 }) {
-  const mid = (layer.y0 + layer.y1) / 2;
-  const height = layer.y1 - layer.y0;
+/** A cut burger is a stack of different things in a small depth, so almost nothing
+ *  in it is properly translucent — the transmission that suits a slab of sweet
+ *  potato would turn the patty to glass. What it does have is a lot of wetness in
+ *  a few places, so the clearcoat is doing most of the work: a thin gloss over the
+ *  whole face, letting the tomato and the fat beads catch a highlight the way the
+ *  matte crumb beside them never will. */
+const FLESH_LOOK: FleshLook = {
+  transmission: 0.04,
+  thickness: 0.02,
+  attenuation: '#8d2b12',
+  attenuationDistance: 0.3,
+  clearcoat: 0.62,
+  clearcoatRoughness: 0.28,
+  emissive: '#3a1206',
+  emissiveIntensity: 0.04,
+  envMapIntensity: 0.9,
+  ior: 1.42,
+};
+
+/** Where each layer sits, as a fraction of the cut face's height from the bottom
+ *  up, now owned by `burgerFlesh` and re-exported from here. The cross-section
+ *  screen drops its markers onto this table, and the generated map is clipped to
+ *  the same seams, so the markers cannot drift off the bands they name. */
+
+useGLTF.preload(MODEL_URL);
+
+/**
+ * The flat face left behind by the cut.
+ *
+ * This used to be a run of flat-coloured strips, one per layer, fanned between the
+ * silhouette's own left and right edges. It is now a single cap carrying a
+ * generated albedo and roughness map, for the reason the other cut foods moved the
+ * same way: a burger opened up is not a set of stripes. The bun is full of little
+ * holes, the patty has a pink middle and a charred edge and beads of fat, the
+ * cheese sags off the patty, and the tomato is wet enough to catch a highlight.
+ * None of that survives being reduced to one `color` and one `roughness` per band.
+ *
+ * The cap is the same `planarCap` every other food uses, and the map is clipped to
+ * the same boundary, so the two agree on where the burger ends — see the note in
+ * `burgerFlesh` about why the silhouette is read off the cap's own radius rather
+ * than measured a second time.
+ */
+function BurgerCutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
+  const cut = useMemo(() => {
+    const maps = buildBurgerMaps(TEXTURE, half.outline);
+    return {
+      geo: planarCap(faceFrame(half.outline), 0.98),
+      tex: cutTextures(`burger:${TEXTURE}`, maps, TEXTURE),
+    };
+  }, [half.outline]);
+
+  if (!cut.geo) return null;
+
   return (
-    <mesh position={[0, mid, 0]} castShadow receiveShadow>
-      <cylinderGeometry args={[layer.r, layer.r, height, 40, 1, true, dir === 1 ? 0 : Math.PI, Math.PI]} />
-      <meshStandardMaterial color={layer.color} roughness={layer.roughness} />
+    <mesh geometry={cut.geo} position={[faceSign * 0.004, 0, 0]}>
+      <meshPhysicalMaterial {...fleshMaterialProps(cut.tex, FLESH_LOOK)} />
     </mesh>
-  );
-}
-
-/** The top half of the bun: the upper half of a sphere over the top bun ring. */
-function HalfDome({ dir }: { dir: 1 | -1 }) {
-  return (
-    <mesh position={[0, BURGER_DOME.base, 0]} castShadow receiveShadow>
-      <sphereGeometry args={[BURGER_DOME.r, 40, 20, dir === 1 ? 0 : Math.PI, Math.PI, 0, Math.PI / 2]} />
-      <meshStandardMaterial color={BUN_TOP} roughness={0.85} />
-    </mesh>
-  );
-}
-
-/** The underside of the whole burger — a half disc lying flat under the base. */
-function BottomCap({ dir }: { dir: 1 | -1 }) {
-  return (
-    <mesh position={[0, BURGER_BOTTOM, 0]} rotation={[Math.PI / 2, 0, 0]}>
-      <circleGeometry args={[1.0, 40, dir === 1 ? -Math.PI / 2 : Math.PI / 2, Math.PI]} />
-      <meshStandardMaterial color={BUN} roughness={0.85} side={THREE.DoubleSide} />
-    </mesh>
-  );
-}
-
-/** A few flat seeds dotted over the dome, echoing the bun in BurgerIcon. */
-function SesameSeeds({ dir }: { dir: 1 | -1 }) {
-  const spots = useMemo(
-    () => [
-      [0.55, 1.21, 0.62],
-      [0.7, 0.98, 0.05],
-      [0.38, 1.43, 0.06],
-      [0.62, 1.07, -0.4],
-    ],
-    [],
-  );
-  return (
-    <group>
-      {spots.map(([x, y, z], i) => (
-        <mesh
-          key={i}
-          position={[dir * x, y, z]}
-          rotation={[0, 0.5 + i, 0.3 - i * 0.2]}
-          scale={[0.16, 0.09, 0.2]}
-        >
-          <sphereGeometry args={[0.22, 12, 10]} />
-          <meshStandardMaterial color={SESAME} roughness={0.9} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/** The flat face left behind by the cut, painted in horizontal bands —
- *  one per layer, with the dome a semicircle on top. A sliced burger shows its
- *  crumb, its greens, its cheese and its patty, which is exactly what these draw. */
-function domeCapGeometry(radius: number, segments: number, centerY: number): THREE.BufferGeometry {
-  const positions: number[] = [];
-  const pts: [number, number][] = [];
-  for (let i = 0; i <= segments; i++) {
-    const a = -Math.PI / 2 + (Math.PI * i) / segments;
-    pts.push([centerY + Math.cos(a) * radius, Math.sin(a) * radius]);
-  }
-  for (let i = 0; i < segments; i++) {
-    positions.push(0, centerY, 0);
-    positions.push(0, pts[i][0], pts[i][1]);
-    positions.push(0, pts[i + 1][0], pts[i + 1][1]);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  return geo;
-}
-
-function CutFace({ faceSign }: { faceSign: 1 | -1 }) {
-  const domeCap = useMemo(() => domeCapGeometry(BURGER_DOME.r, 48, BURGER_DOME.base), []);
-
-  return (
-    <group position={[faceSign * 0.006, 0, 0]}>
-      {BURGER_LAYERS.map((layer, i) => {
-        const mid = (layer.y0 + layer.y1) / 2;
-        const height = layer.y1 - layer.y0;
-        const prev = BURGER_LAYERS[i - 1];
-        return (
-          <group key={layer.id}>
-            <mesh position={[0, mid, 0]} rotation={[0, Math.PI / 2, 0]}>
-              <planeGeometry args={[layer.r * 2, height]} />
-              <meshStandardMaterial
-                color={layer.id === 'top-bun' ? BUN_CRUMB : layer.color}
-                roughness={0.9}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-            {prev && (
-              <mesh position={[faceSign * 0.0012, layer.y0, 0]} rotation={[0, Math.PI / 2, 0]}>
-                <planeGeometry args={[Math.min(layer.r, prev.r) * 2, 0.024]} />
-                <meshStandardMaterial color={SEAM} roughness={1} side={THREE.DoubleSide} />
-              </mesh>
-            )}
-          </group>
-        );
-      })}
-
-      <mesh geometry={domeCap}>
-        <meshStandardMaterial color={BUN_CRUMB} roughness={0.9} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
   );
 }
 
 export function BurgerHalfGeometry({ isLeft = false }: { isLeft?: boolean }) {
-  const dir: 1 | -1 = isLeft ? 1 : -1;
-  const faceSign: 1 | -1 = isLeft ? -1 : 1;
+  const { scene } = useGLTF(MODEL_URL);
+
+  // useGLTF hands back a cached, shared scene — read what we need out of it and
+  // never mutate it, or every other copy on screen changes too.
+  const source = useMemo(() => {
+    let geometry: THREE.BufferGeometry | null = null;
+    let map: THREE.Texture | null = null;
+
+    scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (geometry || !mesh.isMesh) return;
+      geometry = mesh.geometry;
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      map = material?.map ?? null;
+    });
+
+    return { geometry, map };
+  }, [scene]);
+
+  const half = useMemo(
+    () => (source.geometry ? sliceAtX(source.geometry, isLeft) : null),
+    [source.geometry, isLeft],
+  );
+
+  if (!half) return null;
 
   return (
     <group>
-      {BURGER_LAYERS.map((layer) => (
-        <HalfCylinder key={layer.id} layer={layer} dir={dir} />
-      ))}
-      <HalfDome dir={dir} />
-      <BottomCap dir={dir} />
-      <SesameSeeds dir={dir} />
-      <CutFace faceSign={faceSign} />
+      {/* The scan ships without normals, so it is lit flat — which suits a
+          burger's crisp bun and seared patty better than smoothing them over. */}
+      <mesh geometry={half.geometry} castShadow receiveShadow>
+        <meshStandardMaterial
+          map={source.map}
+          flatShading
+          roughness={0.8}
+          envMapIntensity={0.7}
+        />
+      </mesh>
+
+      <BurgerCutFace half={half} faceSign={isLeft ? -1 : 1} />
     </group>
   );
 }
@@ -222,8 +178,15 @@ export default function BurgerModel({
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      {/* tipped up off the board so the domed top and the cut edge both read */}
-      <group rotation={[0.4, 0.25, 0]}>
+      {/* Standing straight up on its base bun, with no lean.
+          The stack used to be pitched 0.4 about x, which tipped the whole burger
+          over at an angle as it turned. That is gone, and with it the reason it
+          was there: the pitch was shortening the burger's footprint by
+          foreshortening it, which is how 3.05 fitted the board. Held upright the
+          footprint is genuinely that big, so the size is not buying the lean
+          back. The 0.25 about y stays, because that one is not cosmetic — it is
+          what angles the cut face toward the camera instead of edge-on. */}
+      <group rotation={[0, 0.25, 0]}>
         <group ref={innerA}>
           <BurgerHalfGeometry isLeft />
         </group>

@@ -11,10 +11,28 @@ interface FoodCanvasProps {
   showPedestal?: boolean;
 }
 
+/** The plate is a short cylinder hanging below the origin, so the surface a food
+ *  actually rests on is nowhere near y = 0. Every measurement of it lives here so
+ *  the food can be sat on the board and the board itself can never drift apart
+ *  from that. */
+const BOARD_Y = -1.25;
+const BOARD_THICKNESS = 0.16;
+const BOARD_RADIUS_TOP = 2.25;
+const BOARD_RADIUS_BOTTOM = 2.32;
+
+/** The world height of the cutting board's top surface. A food on the board is
+ *  fitted to this, not to the origin — otherwise the tallest foods sink through
+ *  the plate, since a fit centred on y = 0 leaves them hanging below its edge. */
+export const BOARD_TOP_Y = BOARD_Y + BOARD_THICKNESS / 2;
+
+/** How far out from the middle the board reaches, as a square corner-to-axis
+ *  radius. A food whose corners pass this is off the edge of the plate. */
+export const BOARD_RADIUS = BOARD_RADIUS_TOP;
+
 /** Round cutting board pedestal matching the reference design */
 function CuttingPedestal() {
   return (
-    <group position={[0, -1.25, 0]}>
+    <group position={[0, BOARD_Y, 0]}>
       {/* Soft shadow on the kitchen table */}
       <mesh position={[0, -0.09, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[2.55, 36]} />
@@ -22,7 +40,7 @@ function CuttingPedestal() {
       </mesh>
       {/* Round cutting board plate */}
       <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[2.25, 2.32, 0.16, 48]} />
+        <cylinderGeometry args={[BOARD_RADIUS_TOP, BOARD_RADIUS_BOTTOM, BOARD_THICKNESS, 48]} />
         <meshStandardMaterial color="#d5e8dd" roughness={0.55} />
       </mesh>
       {/* Subtle recessed inner top rim */}

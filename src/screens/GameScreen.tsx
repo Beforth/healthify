@@ -9,7 +9,7 @@ import FoodIcon from '../components/FoodIcon';
 import BackButton from '../components/BackButton';
 import Celebration from '../components/Celebration';
 import BodyEffect from '../components/BodyEffect';
-import FoodCanvas from '../game/food3d/FoodCanvas';
+import FoodCanvas, { BOARD_TOP_Y } from '../game/food3d/FoodCanvas';
 import FitScale from '../game/food3d/FitScale';
 import Knife3D from '../game/food3d/Knife3D';
 import SliceImpact from '../game/food3d/SliceImpact';
@@ -36,6 +36,7 @@ const NO_CUT_FOODS = new Set([
   'soybeans',
   'soft-drink',
   'potato-chips',
+  'milk',
 ]);
 
 export default function GameScreen() {
@@ -485,9 +486,12 @@ export default function GameScreen() {
                         never move, since the camera itself stays fixed the whole time. */}
                     <DragRotate>
                       {/* fitted to the food's own target size so every food fills
-                          the space it wants, sized per-food not off a reference */}
-                      <FitScale target={foodSizeOf(food.id)}>
-                        <FoodModel cutProgressRef={cutProgressRef} />
+                          the space it wants, sized per-food not off a reference,
+                          and sat on the board rather than centred on the origin */}
+                      <FitScale target={foodSizeOf(food.id)} groundY={BOARD_TOP_Y}>
+                        {/* This is the only screen that shows the inside, so it is the
+                            only one that asks for the board pose. */}
+                        <FoodModel cutProgressRef={cutProgressRef} stage="cut" />
                       </FitScale>
                     </DragRotate>
                     {!noCut && (

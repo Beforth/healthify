@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState, type MutableRefObject } from 'react';
+﻿import { useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCutKick } from './useCutKick';
 import { sliceAtX, type SlicedHalf } from './sliceMesh';
+import { bandStrip, silhouetteBands, type Band } from './silhouetteBand';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/broccoli.glb`;
 
@@ -22,106 +23,6 @@ const STALK_CORE = '#e8f3cf';
 const STALK_SKIN = '#8dbf5e';
 
 useGLTF.preload(MODEL_URL);
-
-interface Band {
-  y: number;
-  z0: number;
-  z1: number;
-}
-
-/**
- * The head's silhouette as a left and right edge sampled up its height.
- *
- * The biscuit caps its cut with a fan around the outline's middle, which works
- * because a biscuit's outline is convex. A broccoli's is not: a narrow stalk
- * under a wide crown, with florets bulging in and out along the top. Fanned from
- * the centre, that outline zigzags and the cap comes out as a starburst of
- * slivers. One left and one right edge per height band gives a clean shape that
- * can only ever go up.
- */
-function silhouetteBands(outline: { y: number; z: number }[], count: number): Band[] {
-  if (outline.length < 6) return [];
-
-  let yMin = Infinity;
-  let yMax = -Infinity;
-  for (const p of outline) {
-    if (p.y < yMin) yMin = p.y;
-    if (p.y > yMax) yMax = p.y;
-  }
-  const span = yMax - yMin;
-  if (span <= 0) return [];
-
-  const lo = new Array<number>(count).fill(Infinity);
-  const hi = new Array<number>(count).fill(-Infinity);
-  for (const p of outline) {
-    const i = Math.min(count - 1, Math.floor(((p.y - yMin) / span) * count));
-    if (p.z < lo[i]) lo[i] = p.z;
-    if (p.z > hi[i]) hi[i] = p.z;
-  }
-
-  const raw: Band[] = [];
-  for (let i = 0; i < count; i++) {
-    if (lo[i] === Infinity) continue;
-    raw.push({ y: yMin + (span * (i + 0.5)) / count, z0: lo[i], z1: hi[i] });
-  }
-  if (raw.length < 2) return [];
-
-  // each band only keeps the single widest point it caught; a light smoothing
-  // keeps the crown's bulge but loses the per-band jitter
-  const bands = raw.map((band, i) => {
-    let z0 = 0;
-    let z1 = 0;
-    let n = 0;
-    for (let k = -1; k <= 1; k++) {
-      const other = raw[i + k];
-      if (!other) continue;
-      z0 += other.z0;
-      z1 += other.z1;
-      n++;
-    }
-    return { y: band.y, z0: z0 / n, z1: z1 / n };
-  });
-
-  // run the strip out to the true top and bottom, rounding off as it goes
-  const pinch = (b: Band, y: number): Band => {
-    const mid = (b.z0 + b.z1) / 2;
-    const half = ((b.z1 - b.z0) / 2) * 0.8;
-    return { y, z0: mid - half, z1: mid + half };
-  };
-  return [pinch(bands[0], yMin), ...bands, pinch(bands[bands.length - 1], yMax)];
-}
-
-/** Fills between the two edges, a hair inside them so the cap never pokes out
- *  through the skin. UVs run 0→1 across each band and up the height, so a
- *  texture painted in that space keeps its stalk centred in the shape. */
-function bandStrip(bands: Band[], inset: number): THREE.BufferGeometry | null {
-  if (bands.length < 2) return null;
-
-  const yMin = bands[0].y;
-  const yMax = bands[bands.length - 1].y;
-  const positions: number[] = [];
-  const uvs: number[] = [];
-
-  const corner = (b: Band, side: 0 | 1) => {
-    const mid = (b.z0 + b.z1) / 2;
-    const half = ((b.z1 - b.z0) / 2) * inset;
-    positions.push(0, b.y, side ? mid + half : mid - half);
-    uvs.push(side, (b.y - yMin) / (yMax - yMin));
-  };
-
-  for (let i = 0; i + 1 < bands.length; i++) {
-    const a = bands[i];
-    const b = bands[i + 1];
-    corner(a, 0); corner(a, 1); corner(b, 1);
-    corner(a, 0); corner(b, 1); corner(b, 0);
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geo.computeVertexNormals();
-  return geo;
-}
 
 /**
  * What the inside of a halved broccoli looks like, painted once into a texture:
@@ -314,11 +215,16 @@ export default function BroccoliModel({
 
     if (innerA.current) {
       innerA.current.position.x = sep;
-      innerA.current.rotation.y = Math.min(sep * 0.8, 0.45);
+      // Splay the halves far enough round that the cut face turns toward the
+      // camera. A head of broccoli is cut straight down x = 0, so the stalk and
+      // florets the cut exposes face along ±x — and a camera sitting on +z only
+      // ever catches them edge-on. The cap is what decides whether the payoff of
+      // the cut is the pale stalk branching into the florets or nothing at all.
+      innerA.current.rotation.y = Math.min(sep * 0.8, 0.9);
     }
     if (innerB.current) {
       innerB.current.position.x = -sep;
-      innerB.current.rotation.y = -Math.min(sep * 0.8, 0.45);
+      innerB.current.rotation.y = -Math.min(sep * 0.8, 0.9);
     }
 
     squish.current *= Math.exp(-delta * 6);

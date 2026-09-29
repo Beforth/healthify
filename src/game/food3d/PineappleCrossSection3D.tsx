@@ -41,12 +41,16 @@ const FACTS: CrossSectionFact[] = [
 
 /** Marker spots on the cut face. The scan is small in its own units: the fruit
  *  runs from the base at y = -0.5 up to about y = 0.02 where the crown takes
- *  over, and x is a hair positive so each dot floats just proud of the face. */
+ *  over, and x is a hair positive so each dot floats just proud of the face.
+ *
+ *  The core is painted into the flesh rather than being a separate layer, so
+ *  these land on colour that is actually there — `fibre` has to sit on the pale
+ *  column, and the pale column is much narrower than the core's outline is. */
 const SPOTS: Record<string, [number, number, number]> = {
-  fibre: [0.03, -0.12, 0], // the pale core, dead centre
+  fibre: [0.03, -0.24, 0], // the pale core, up the middle of the fruit
   sugar: [0.03, -0.27, 0.12], // flesh, front side
   'vitamin-c': [0.03, -0.3, -0.12], // flesh, back side
-  water: [0.03, -0.45, 0], // down near the base
+  water: [0.03, -0.45, 0], // down near the base, where the juice collects
 };
 
 function Scene({

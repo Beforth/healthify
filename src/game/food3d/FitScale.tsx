@@ -17,6 +17,34 @@ function measureMax(node: THREE.Object3D): number | null {
   return max > 1e-6 ? max : null;
 }
 
+/** The lowest point of this subtree, in *this group's* own coordinates.
+ *
+ *  `measureMax` measures in world space, which only matches local space while
+ *  the group and all of its parents are untransformed — and the cut stage's
+ *  `DragRotate` rotates the moment the user drags. The seat offset has to survive
+ *  that, so the box is rebuilt from the children's own bounding boxes pulled
+ *  back through the inverse of this group's world matrix. Visibility is ignored,
+ *  exactly as `Box3.setFromObject` ignores it, so both measurements always agree
+ *  about which meshes count as part of the food. */
+function measureLocalFloor(node: THREE.Object3D): number {
+  node.updateWorldMatrix(true, true);
+  const invWorld = new THREE.Matrix4().copy(node.matrixWorld).invert();
+  const local = new THREE.Matrix4();
+  const box = new THREE.Box3();
+  const piece = new THREE.Box3();
+
+  node.traverse((child) => {
+    const geometry = (child as THREE.Mesh).geometry;
+    if (!geometry) return;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    if (!geometry.boundingBox) return;
+    local.copy(invWorld).multiply(child.matrixWorld);
+    box.union(piece.copy(geometry.boundingBox).applyMatrix4(local));
+  });
+
+  return box.isEmpty() ? 0 : box.min.y;
+}
+
 /**
  * Scales its children so the ensemble fills a chosen on-screen footprint.
  *
@@ -30,25 +58,47 @@ function measureMax(node: THREE.Object3D): number | null {
  * The measurement covers only this model's own subtree: no model publishes a size
  * for another to scale against, so two foods on the same page never influence
  * each other.
+ *
+ * `groundY` is the other half of the placement. Fitting normalises a food's *size*
+ * but leaves it centred on the origin, and on the cut stage the origin is half a
+ * unit above the cutting board, so the taller foods ended up hanging through it.
+ * Given the board's height, the food is dropped until its lowest point rests
+ * there. A model that already seats itself — the donut's `REST_Y`, the ice
+ * cream's lifted cone — comes out of this unchanged, because its own offset is
+ * part of the box being measured. Omit `groundY` wherever there is no board
+ * under the food, and the food stays centred on the origin as before.
  */
-export default function FitScale({ target = DEFAULT_TARGET, children }: { target?: number; children: ReactNode }) {
+export default function FitScale({
+  target = DEFAULT_TARGET,
+  groundY,
+  children,
+}: {
+  target?: number;
+  groundY?: number;
+  children: ReactNode;
+}) {
   const group = useRef<THREE.Group>(null);
-  const [scale, setScale] = useState(1);
+  const [fit, setFit] = useState({ scale: 1, offsetY: 0 });
 
   useLayoutEffect(() => {
     const node = group.current;
     if (!node) return;
     const max = measureMax(node);
     if (max === null) return;
-    setScale(target / max);
-  }, [target]);
+
+    const scale = target / max;
+    const floor = measureLocalFloor(node);
+    setFit({ scale, offsetY: groundY === undefined ? 0 : groundY - floor * scale });
+  }, [target, groundY]);
 
   // The fit is taken once, while the food is whole. `KeepInView` covers what
-  // happens after — halves sliding apart on a canvas too narrow for them.
+  // happens after — halves sliding apart on a canvas too narrow for them. The
+  // seat sits outside it, so `KeepInView` shrinking a too-wide food scales the
+  // food about its own middle and never drags it off the board.
   return (
-    <group ref={group}>
+    <group ref={group} position={[0, fit.offsetY, 0]}>
       <KeepInView>
-        <group scale={scale}>{children}</group>
+        <group scale={fit.scale}>{children}</group>
       </KeepInView>
     </group>
   );

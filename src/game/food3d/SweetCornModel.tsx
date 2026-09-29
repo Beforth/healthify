@@ -176,8 +176,26 @@ export default function SweetCornModel({
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      {/* tipped over so the lengthwise cob reads as lying on the board */}
-      <group rotation={[0.1, 0.4, 0.65]}>
+      {/* Stood on its tip and leaned well off vertical, about 60 degrees.
+          The -90 degrees about z is the whole reason it is upright: the cob is
+          sliced across its length, and the scan arrives with that length down z,
+          so standing it up is a quarter turn. The 0.25 about y now spins the cob
+          about its own standing axis rather than turning its cut face to the
+          camera, which the lean already did.
+
+          The steep lean is not decoration, it is what lets the cob stand at all.
+          The halves part by 0.8 of a cob that is only 1.0 long — eighty percent of
+          the food's whole length. Lying down, that separation goes into the
+          frame's width and nobody sees it; standing up it goes into the height,
+          where there is none to spare, and at the old 3.6 the upper half ended up
+          45% above the top of the frame once the cut settled. Leaning this far
+          tips the separation back over into the width, where there is room. The
+          price is the size: 3.0 is the largest that keeps the whole cut in frame.
+
+          What the upright pose buys is the cut. Pointing up, the camera looks
+          down into the face — 40% of it visible, against 27% when the cob lies
+          down — so this is the only orientation that shows what the cut is for. */}
+      <group rotation={[1.05, 0.25, -Math.PI / 2]}>
         <group ref={innerA}>
           <SweetCornHalfGeometry isLeft />
         </group>

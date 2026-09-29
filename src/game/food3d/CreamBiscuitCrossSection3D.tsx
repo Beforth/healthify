@@ -57,9 +57,10 @@ function Scene({
   select: (id: string | null) => void;
 }) {
   return (
-    // Big enough that the cream band is the first thing you see; the shell's
-    // KeepInView trims it on a canvas that cannot hold it.
-    <group rotation={[0.22, -Math.PI / 2 + 0.42, 0]} scale={3.2}>
+    // Big enough that the cream band is the first thing you see — the cream is
+    // thin against the biscuit, so a smaller scene left it a stripe you had to
+    // look for. The shell's KeepInView trims it on a canvas that cannot hold it.
+    <group rotation={[0.22, -Math.PI / 2 + 0.42, 0]} scale={4}>
       <CreamBiscuitHalfGeometry isLeft={false} />
       {FACTS.map((f) => (
         <Hotspot
@@ -69,7 +70,7 @@ function Scene({
           color={f.color}
           active={active}
           onSelect={select}
-          scale={0.4}
+          scale={0.44}
         />
       ))}
     </group>

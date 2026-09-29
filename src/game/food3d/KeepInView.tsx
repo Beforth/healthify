@@ -71,8 +71,8 @@ function extremePoints(geometry: THREE.BufferGeometry): THREE.Vector3[] {
  * narrow canvas (a phone held upright, a small window) a half can drift straight
  * off the edge. Rather than every model second-guessing its own separation, this
  * watches the outermost points of every mesh inside it each frame, projects them
- * through the canvas's camera, and eases the scale down whenever one would land
- * outside the frame.
+ * through the canvas's camera, and pulls the scale in the moment one of them
+ * would land outside the frame.
  *
  * It measures against the camera's *settled starting* pose, not the live one, so
  * a hand that has zoomed or spun the microscope view is never fought.
@@ -124,13 +124,17 @@ export default function KeepInView({ children }: { children: ReactNode }) {
     });
     if (reach === 0) return;
 
-    // `reach` > 1 means the furthest point is past the edge. The scale that
-    // just fits is roughly the current one over that overshoot; easing toward
-    // it (and re-measuring next frame) converges in a few frames without a pop.
-    // Once there is room again — the bounce at the end of a cut is transient —
-    // it drifts back up, slowly and never past the food's natural size.
+    // `reach` > 1 means the furthest point is past the edge, and the scale that
+    // just fits is exactly the current one over that overshoot. It is applied
+    // immediately rather than eased toward: a damped correction takes a quarter
+    // of a second to land, and the bounce at the end of a cut is over in less
+    // than that — so an eased one loses the race and a half is seen drifting
+    // off the edge. `reach` is re-measured from the current pose every frame, so
+    // the single correction lands on the size that fits and costs one frame.
+    // Growing back stays slow: it only happens once the transient has passed,
+    // and the food eases up to its natural size rather than springing at it.
     const target = Math.min(1, shrink.current / reach);
-    shrink.current = THREE.MathUtils.damp(shrink.current, target, reach > 1 ? 14 : 2.5, delta);
+    shrink.current = reach > 1 ? target : THREE.MathUtils.damp(shrink.current, 1, 2.5, delta);
     node.scale.setScalar(shrink.current);
     if (import.meta.env.DEV) {
       (window as unknown as { __kiv: unknown }).__kiv = { shrink: shrink.current, reach };

@@ -2,8 +2,6 @@ import { useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { useCutKick } from './useCutKick';
-import { sliceAtX, type SlicedHalf } from './sliceMesh';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/soft-drink.glb`;
 
@@ -11,69 +9,95 @@ const MODEL_URL = `${import.meta.env.BASE_URL}models/soft-drink.glb`;
  *  upright with the brand label wrapped around the scan. */
 const SCALE = 1.6;
 
-/** Sampled off the scan: bare silver rim. The inside is invented — the scan is
- *  only a shell — and a halved can shows open cola, not aluminium. */
-const CAN_WALL = '#b7c0c1';
-const COLA = '#4a2a18';
-const COLA_DARK = '#3a2110';
+/** The scan's own top edge, where a can's lid sits. The can is a unit tall with
+ *  its origin in the middle, so the lid belongs a hair under half a unit up. */
+const CAN_TOP = 0.5;
+const LID_RADIUS = 0.2;
+
+/** Sampled off the scan's bare silver rim. The can is shown whole, so there is no
+ *  inside to invent — the only thing added is the lid, and that is built from
+ *  real can geometry: a disc with a raised ring and a rivet holding a tab. */
+const LID_SILVER = '#c9d0d1';
+const LID_RING = '#9aa3a4';
+const TAB_COLOUR = '#dfe5e6';
+
+/** How long after the can appears before the tab lifts, and how long it takes.
+ *  A can that springs open the instant it is on screen reads as a broken prop;
+ *  the delay is what makes it feel like someone opened it. */
+const OPEN_DELAY = 0.7;
+const OPEN_TIME = 0.5;
 
 useGLTF.preload(MODEL_URL);
 
-function cutCap(outline: { y: number; z: number }[], inset: number): THREE.BufferGeometry | null {
-  if (outline.length < 3) return null;
+/**
+ * The lid, in two real pieces: the disc it is pressed into, and the tab that
+ * pivots up off it on its rivet.
+ *
+ * The scan is a closed can, so this is the only part of the model that is
+ * invented — and it is invented the way the real thing works, so the animation
+ * that lifts it also uncovers a dark opening where the drink would be.
+ */
+function CanLid({ openRef }: { openRef: MutableRefObject<number> }) {
+  const pivot = useRef<THREE.Group>(null);
 
-  const cy = outline.reduce((sum, p) => sum + p.y, 0) / outline.length;
-  const cz = outline.reduce((sum, p) => sum + p.z, 0) / outline.length;
-
-  const positions: number[] = [];
-  for (let i = 0; i < outline.length; i++) {
-    const a = outline[i];
-    const b = outline[(i + 1) % outline.length];
-    positions.push(
-      0, cy, cz,
-      0, cy + (a.y - cy) * inset, cz + (a.z - cz) * inset,
-      0, cy + (b.y - cy) * inset, cz + (b.z - cz) * inset,
+  // Driven in the frame loop rather than through props: the tab's lift is a
+  // running animation, and handing a ref to a component re-renders nothing while
+  // still letting it move every frame.
+  useFrame((_, delta) => {
+    if (!pivot.current) return;
+    pivot.current.rotation.x = THREE.MathUtils.damp(
+      pivot.current.rotation.x,
+      openRef.current * 1.15,
+      9,
+      delta,
     );
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  return geo;
-}
-
-function CutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
-  const layers = useMemo(
-    () => ({
-      rim: cutCap(half.outline, 0.99),
-      cola: cutCap(half.outline, 0.93),
-      deep: cutCap(half.outline, 0.6),
-    }),
-    [half.outline],
-  );
-
-  if (!layers.rim) return null;
+  });
 
   return (
-    <group>
-      <mesh geometry={layers.rim} position={[faceSign * 0.004, 0, 0]}>
-        <meshStandardMaterial color={CAN_WALL} roughness={0.35} side={THREE.DoubleSide} />
+    <group position={[0, CAN_TOP, 0]}>
+      {/* the disc, sunk very slightly into the can's rim */}
+      <mesh position={[0, -LID_RADIUS * 0.06, 0]}>
+        <cylinderGeometry args={[LID_RADIUS, LID_RADIUS, 0.008, 40]} />
+        <meshStandardMaterial color={LID_SILVER} roughness={0.42} metalness={0.6} />
       </mesh>
-      {layers.cola && (
-        <mesh geometry={layers.cola} position={[faceSign * 0.006, 0, 0]}>
-          <meshStandardMaterial color={COLA} roughness={0.55} side={THREE.DoubleSide} />
+      {/* the ring scored round where the tab was pressed in */}
+      <mesh position={[0, 0.001, 0]}>
+        <ringGeometry args={[LID_RADIUS * 0.78, LID_RADIUS * 0.84, 40]} />
+        <meshStandardMaterial
+          color={LID_RING}
+          roughness={0.5}
+          metalness={0.5}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* the opening, dark because what is under a can's lid is the inside of
+          the can — visible only once the tab has actually lifted */}
+      <mesh position={[0, -0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[LID_RADIUS * 0.55, 32]} />
+        <meshStandardMaterial color="#12181a" roughness={0.9} />
+      </mesh>
+
+      {/* the tab, hinged at its front edge and standing up as it opens */}
+      <group ref={pivot} position={[0, 0.004, LID_RADIUS * 0.3]}>
+        <mesh position={[0, 0, -LID_RADIUS * 0.3]}>
+          <boxGeometry args={[LID_RADIUS * 0.62, 0.006, LID_RADIUS * 0.56]} />
+          <meshStandardMaterial color={TAB_COLOUR} roughness={0.38} metalness={0.6} />
         </mesh>
-      )}
-      {layers.deep && (
-        <mesh geometry={layers.deep} position={[faceSign * 0.008, 0, 0]}>
-          <meshStandardMaterial color={COLA_DARK} roughness={0.5} side={THREE.DoubleSide} />
+        {/* the rivet it turns on, and the little lip you push it with */}
+        <mesh position={[0, 0.005, -LID_RADIUS * 0.12]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.006, 12]} />
+          <meshStandardMaterial color={LID_RING} roughness={0.4} metalness={0.7} />
         </mesh>
-      )}
+        <mesh position={[0, 0.005, -LID_RADIUS * 0.52]}>
+          <boxGeometry args={[LID_RADIUS * 0.3, 0.005, 0.014]} />
+          <meshStandardMaterial color={TAB_COLOUR} roughness={0.38} metalness={0.6} />
+        </mesh>
+      </group>
     </group>
   );
 }
 
-export function SoftDrinkHalfGeometry({ isLeft = false }: { isLeft?: boolean }) {
+export function SoftDrinkWholeGeometry({ openRef }: { openRef: MutableRefObject<number> }) {
   const { scene } = useGLTF(MODEL_URL);
 
   // useGLTF hands back a cached, shared scene — read what we need out of it and
@@ -93,20 +117,14 @@ export function SoftDrinkHalfGeometry({ isLeft = false }: { isLeft?: boolean }) 
     return { geometry, map };
   }, [scene]);
 
-  const half = useMemo(
-    () => (source.geometry ? sliceAtX(source.geometry, isLeft) : null),
-    [source.geometry, isLeft],
-  );
-
-  if (!half) return null;
+  if (!source.geometry) return null;
 
   return (
     <group>
-      <mesh geometry={half.geometry} castShadow receiveShadow>
+      <mesh geometry={source.geometry} castShadow receiveShadow>
         <meshStandardMaterial map={source.map} flatShading roughness={0.4} envMapIntensity={0.9} />
       </mesh>
-
-      <CutFace half={half} faceSign={isLeft ? -1 : 1} />
+      <CanLid openRef={openRef} />
     </group>
   );
 }
@@ -118,37 +136,30 @@ export default function SoftDrinkModel({
   cutAngle?: number;
 }) {
   const outer = useRef<THREE.Group>(null);
-  const innerA = useRef<THREE.Group>(null);
-  const innerB = useRef<THREE.Group>(null);
-  const progress = useRef(0);
   const squish = useRef(0);
+  /** 0 while the can is still shut, 1 once the tab has lifted. */
+  const open = useRef(0);
   const [hovered, setHovered] = useState(false);
-  const tickKick = useCutKick(cutProgressRef);
 
   useFrame((state, delta) => {
-    progress.current = THREE.MathUtils.damp(progress.current, cutProgressRef.current, 25, delta);
-    const p = progress.current;
-    const kick = tickKick(delta);
-    const sep = p * 0.42 + kick * 0.24;
-
-    if (innerA.current) {
-      innerA.current.position.x = sep;
-      innerA.current.rotation.y = Math.min(sep * 0.5, 0.3);
-    }
-    if (innerB.current) {
-      innerB.current.position.x = -sep;
-      innerB.current.rotation.y = -Math.min(sep * 0.5, 0.3);
+    // The tab opens once, shortly after the can lands, and stays open. It is not
+    // driven by `cutProgressRef`: a can is not something you slice, so there is no
+    // cut to react to, and it should behave the same on the play screen and the
+    // picker. A can that sprang open the instant it appeared would read as a
+    // broken prop, so it waits — and once open it never shuts again.
+    const t = state.clock.elapsedTime - OPEN_DELAY;
+    if (open.current < 1) {
+      open.current = t <= 0 ? 0 : Math.min(1, t / OPEN_TIME);
     }
 
     squish.current *= Math.exp(-delta * 6);
-    if (outer.current) {
-      const wobble = Math.sin(state.clock.elapsedTime * 14) * squish.current;
-      const hoverBoost = hovered ? 1.05 : 1;
-      // a can of soft drink is the hardest thing on the board: tin barely gives
-      outer.current.scale.setScalar(SCALE * (1 - wobble * 0.04) * hoverBoost);
-      outer.current.position.y =
-        cutProgressRef.current > 0.02 ? 0 : Math.sin(state.clock.elapsedTime * 1.6) * 0.04;
-    }
+    if (!outer.current) return;
+    const wobble = Math.sin(state.clock.elapsedTime * 14) * squish.current;
+    const hoverBoost = hovered ? 1.05 : 1;
+    // a can of soft drink is the hardest thing on the board: tin barely gives
+    outer.current.scale.setScalar(SCALE * (1 - wobble * 0.04) * hoverBoost);
+    outer.current.position.y =
+      cutProgressRef.current > 0.02 ? 0 : Math.sin(state.clock.elapsedTime * 1.6) * 0.04;
   });
 
   const bump = (e: ThreeEvent<PointerEvent>) => {
@@ -166,12 +177,7 @@ export default function SoftDrinkModel({
     >
       {/* standing tall; the tiniest twist so the cylinder's roundness reads */}
       <group rotation={[0.05, 0.3, 0]}>
-        <group ref={innerA}>
-          <SoftDrinkHalfGeometry isLeft />
-        </group>
-        <group ref={innerB}>
-          <SoftDrinkHalfGeometry isLeft={false} />
-        </group>
+        <SoftDrinkWholeGeometry openRef={open} />
       </group>
     </group>
   );

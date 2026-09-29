@@ -38,8 +38,10 @@ export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): S
   let zMin = Infinity;
   let zMax = -Infinity;
 
-  // the same corner is produced once per triangle sharing it, so key the points
-  // to a fine grid and keep one of each
+  // Every triangle the plane passes through contributes a short piece of the
+  // cross-section. The pieces are only a scatter — on a coarse model the plane
+  // clips disconnected slivers rather than a connected band — so this keeps them
+  // and lets the cap work out the rim for itself from the outer envelope.
   const seen = new Map<string, { y: number; z: number }>();
 
   const p = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];

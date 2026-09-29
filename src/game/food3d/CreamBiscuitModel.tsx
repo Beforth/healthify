@@ -66,8 +66,9 @@ function CutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
 
   if (!crumbGeo) return null;
 
-  // A sandwich biscuit is roughly a third cream by thickness.
-  const creamHeight = height * 0.34;
+  // A sandwich biscuit is roughly a third cream by thickness — a little more
+  // than that here, because the cream is the whole point of opening one up.
+  const creamHeight = height * 0.38;
   // kept a little short of the rim so only the crumb cap ever touches the edge
   const creamWidth = (cut.zMax - cut.zMin) * 0.9;
   const seam = height * 0.025;
@@ -81,8 +82,11 @@ function CutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
       </mesh>
 
       {/* a plane faces +z by default; a quarter turn about y stands it up
-          facing ±x, putting its width along z and its height along y */}
-      <group position={[faceSign * 0.002, yMid, zMid]} rotation={[0, Math.PI / 2, 0]}>
+          facing ±x, putting its width along z and its height along y. It stands
+          a clear step further out of the opening than the crumb cap beneath it:
+          at a shallow angle a cream band sitting almost flush with the cap
+          z-fights into it and the layer a child is looking for disappears. */}
+      <group position={[faceSign * 0.006, yMid, zMid]} rotation={[0, Math.PI / 2, 0]}>
         <mesh>
           <planeGeometry args={[creamWidth, creamHeight]} />
           <meshStandardMaterial color={CREAM} roughness={0.5} side={THREE.DoubleSide} />
@@ -177,11 +181,16 @@ export default function CreamBiscuitModel({
 
     if (innerA.current) {
       innerA.current.position.x = sep;
-      innerA.current.rotation.y = Math.min(sep * 0.9, 0.5);
+      // Splay the halves right round so the cut face turns toward the camera. A
+      // cream biscuit is a wide, flat disc cut straight down x = 0, so the two
+      // faces it leaves behind point along ±x — and a camera sitting on +z only
+      // ever catches them edge-on. The cream sandwiched between them is the whole
+      // reward for cutting, so the halves have to open far enough to show it.
+      innerA.current.rotation.y = Math.min(sep * 0.9, 0.95);
     }
     if (innerB.current) {
       innerB.current.position.x = -sep;
-      innerB.current.rotation.y = -Math.min(sep * 0.9, 0.5);
+      innerB.current.rotation.y = -Math.min(sep * 0.9, 0.95);
     }
 
     squish.current *= Math.exp(-delta * 6);

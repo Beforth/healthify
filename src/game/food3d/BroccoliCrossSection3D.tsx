@@ -58,9 +58,11 @@ function Scene({
 }) {
   return (
     // The cut face's normal runs along +x, so a quarter turn back about y brings
-    // it round to the camera. Drawn big so the stalk and florets read; the
-    // shell's KeepInView trims it on a canvas that cannot hold it.
-    <group rotation={[0.15, -Math.PI / 2 + 0.35, 0]} scale={2.8}>
+    // it round to the camera. Drawn big so the stalk and florets read — a head of
+    // broccoli is mostly stalk once it is open, and at a smaller size the cut is
+    // the one part you cannot see. The shell's KeepInView trims it on a canvas
+    // that cannot hold it.
+    <group rotation={[0.15, -Math.PI / 2 + 0.35, 0]} scale={3.6}>
       <BroccoliHalfGeometry isLeft={false} />
       {FACTS.map((f) => (
         <Hotspot
@@ -70,7 +72,7 @@ function Scene({
           color={f.color}
           active={active}
           onSelect={select}
-          scale={0.36}
+          scale={0.4}
         />
       ))}
     </group>

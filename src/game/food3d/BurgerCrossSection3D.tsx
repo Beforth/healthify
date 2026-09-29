@@ -1,4 +1,5 @@
 import { Candy, Droplet, Sparkles, Zap } from 'lucide-react';
+import * as THREE from 'three';
 import CrossSectionShell, { type CrossSectionFact } from './CrossSectionShell';
 import { BurgerHalfGeometry, BURGER_LAYERS } from './BurgerModel';
 import Hotspot from './Hotspot';
@@ -39,19 +40,24 @@ const FACTS: CrossSectionFact[] = [
   },
 ];
 
-/** Marker spots on the cut face, in the burger's own units (BURGER_LAYERS gives
- *  each band's y range). x is a hair positive so each dot floats just proud of
- *  the flat face, sitting on the band it talks about. */
+/** Marker spots on the cut face, in the scan's own units. `BURGER_LAYERS` gives
+ *  each layer as a fraction of the face's height, so a marker is dropped on the
+ *  middle of the band it talks about and inherits that band's width. x is a hair
+ *  positive so each dot floats just proud of the flat face. */
 const bandY = (id: string) => {
   const layer = BURGER_LAYERS.find((l) => l.id === id)!;
-  return (layer.y0 + layer.y1) / 2;
+  return THREE.MathUtils.lerp(MIN_Y, MAX_Y, (layer.v0 + layer.v1) / 2);
 };
 
+/** The scan's own height, so a fraction of the burger maps back to world units. */
+const MIN_Y = -0.198;
+const MAX_Y = 0.199;
+
 const SPOTS: Record<string, [number, number, number]> = {
-  fat: [0.03, bandY('cheese'), 0], // cheese + patty are where the fat hides
-  sodium: [0.03, bandY('top-bun'), 0], // salt baked into the bun crumb
-  sugar: [0.03, bandY('bottom-bun'), 0], // the soft bun holds the hidden sugar
-  protein: [0.03, bandY('patty'), 0], // the patty is the meat
+  fat: [0.004, bandY('cheese'), 0], // cheese + patty are where the fat hides
+  sodium: [0.004, bandY('top-bun'), 0], // salt baked into the bun crumb
+  sugar: [0.004, bandY('bottom-bun'), 0], // the soft bun holds the hidden sugar
+  protein: [0.004, bandY('patty'), 0], // the patty is the meat
 };
 
 function Scene({
@@ -62,7 +68,7 @@ function Scene({
   select: (id: string | null) => void;
 }) {
   return (
-    <group rotation={[0.24, -Math.PI / 2 + 0.42, 0]} scale={1.9}>
+    <group rotation={[0.18, -Math.PI / 2 + 0.38, 0]} scale={5.2}>
       <BurgerHalfGeometry isLeft={false} />
       {FACTS.map((f) => (
         <Hotspot
