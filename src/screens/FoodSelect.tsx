@@ -132,9 +132,8 @@ export default function FoodSelect() {
               className="card"
               data-tour={i === 0 ? 'food-card-0' : undefined}
               disabled={locked}
-              initial={{ y: 16, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: i * 0.06 }}
+              initial={false}
+              animate={{ y: 0, opacity: locked ? 0.35 : 1 }}
               whileTap={locked ? undefined : { scale: 0.95 }}
               whileHover={locked ? undefined : { y: -4, rotate: [0, -2, 2, 0] }}
               onClick={() => {

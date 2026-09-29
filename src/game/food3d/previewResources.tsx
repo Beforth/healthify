@@ -1,0 +1,189 @@
+import { Component, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { createRoot, extend, useFrame, type ReconcilerRoot, type RootStore } from '@react-three/fiber';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three-stdlib';
+import { FOOD_MODELS, PREVIEW_SCANS, foodSizeOf } from './foodRegistry';
+
+// Register only constructors used by procedural food models (not THREE utilities).
+extend({ Group: THREE.Group, Mesh: THREE.Mesh, SphereGeometry: THREE.SphereGeometry,
+  CylinderGeometry: THREE.CylinderGeometry, TorusGeometry: THREE.TorusGeometry,
+  BoxGeometry: THREE.BoxGeometry, CircleGeometry: THREE.CircleGeometry,
+  PlaneGeometry: THREE.PlaneGeometry, RingGeometry: THREE.RingGeometry,
+  ConeGeometry: THREE.ConeGeometry, CapsuleGeometry: THREE.CapsuleGeometry,
+  MeshStandardMaterial: THREE.MeshStandardMaterial, MeshPhysicalMaterial: THREE.MeshPhysicalMaterial,
+  MeshBasicMaterial: THREE.MeshBasicMaterial });
+
+function resources(object: THREE.Object3D) {
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
+  object.traverse((node) => {
+    if (!(node instanceof THREE.Mesh)) return;
+    geometries.add(node.geometry);
+    for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+      materials.add(material);
+      for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
+    }
+  });
+  return { geometries, materials, textures };
+}
+
+function disposeObject(object: THREE.Object3D, closeImages = false) {
+  const { geometries, materials, textures } = resources(object);
+  geometries.forEach((g) => g.dispose());
+  materials.forEach((m) => m.dispose());
+  textures.forEach((t) => {
+    t.dispose();
+    const image = t.image as { close?: () => void } | undefined;
+    if (closeImages && typeof image?.close === 'function') image.close();
+  });
+}
+
+/** Independent, small texture sources. Neither cached GLTF textures nor gameplay
+ * resources are mutated. 256px is sufficient for a 100px card at 2x DPR. */
+function thumbnailTexture(source: THREE.Texture): THREE.Texture {
+  const image = source.image as CanvasImageSource & { width: number; height: number };
+  if (!image?.width || !image?.height) throw new Error('Unsupported preview texture');
+  const canvas = document.createElement('canvas');
+  const ratio = Math.min(1, 256 / Math.max(image.width, image.height));
+  canvas.width = Math.max(1, Math.round(image.width * ratio));
+  canvas.height = Math.max(1, Math.round(image.height * ratio));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('2D canvas unavailable');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const texture = source.clone();
+  texture.source = new THREE.Source(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function snapshot(source: THREE.Object3D): THREE.Object3D {
+  const result = source.clone(true);
+  const geometries = new Map<THREE.BufferGeometry, THREE.BufferGeometry>();
+  const materials = new Map<THREE.Material, THREE.Material>();
+  const textures = new Map<THREE.Texture, THREE.Texture>();
+  result.traverse((node) => {
+    if (!(node instanceof THREE.Mesh)) return;
+    const geometry = node.geometry;
+    if (!geometries.has(geometry)) geometries.set(geometry, geometry.clone());
+    node.geometry = geometries.get(geometry)!;
+    const copyMaterial = (original: THREE.Material) => {
+      if (!materials.has(original)) {
+        const material = original.clone();
+        for (const [key, value] of Object.entries(material)) {
+          if (!(value instanceof THREE.Texture)) continue;
+          if (!textures.has(value)) textures.set(value, thumbnailTexture(value));
+          (material as unknown as Record<string, unknown>)[key] = textures.get(value);
+        }
+        materials.set(original, material);
+      }
+      return materials.get(original)!;
+    };
+    node.material = Array.isArray(node.material) ? node.material.map(copyMaterial) : copyMaterial(node.material);
+  });
+  return result;
+}
+
+class BuildBoundary extends Component<{ children: ReactNode; fail: (error: Error) => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: Error) { this.props.fail(error); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
+
+// This is a private, short-lived Fiber tree owned by the builder, not a refresh boundary.
+// eslint-disable-next-line react/only-export-components
+function BuildModel({ id, ready }: { id: string; ready: (group: THREE.Group) => void }) {
+  const group = useRef<THREE.Group>(null);
+  const cut = useRef(0);
+  const Model = FOOD_MODELS[id];
+  // Initialization only. A positive priority disables Fiber's automatic draw;
+  // no texture upload or hidden render happens while taking the snapshot.
+  useFrame(() => {}, 1);
+  useLayoutEffect(() => { ready(group.current!); }, [ready]);
+  return <group ref={group} dispose={null}><Model cutProgressRef={cut} /></group>;
+}
+
+export interface PreviewResource {
+  object: THREE.Object3D;
+  bytes: number;
+  dispose: () => void;
+}
+
+/** One dormant Fiber root, sharing the renderer, is used ONLY to initialize
+ * procedural models. After capture its component tree and frame subscribers are
+ * removed. GLB previews use the whole scan and bypass slicing altogether. */
+export class PreviewBuilder {
+  private root?: ReconcilerRoot<HTMLCanvasElement>;
+  private store?: RootStore;
+  private gl: THREE.WebGLRenderer;
+  private time = 0;
+
+  constructor(gl: THREE.WebGLRenderer) { this.gl = gl; }
+
+  async build(id: string): Promise<PreviewResource> {
+    let object: THREE.Object3D;
+    const scan = PREVIEW_SCANS[id];
+    if (scan) {
+      // Private loader: no unbounded useGLTF cache and no ownership overlap with
+      // gameplay. HTTP caching still prevents unnecessary downloads after eviction.
+      const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}${scan.url}`);
+      try {
+        const pose = new THREE.Group();
+        const upright = new THREE.Group();
+        upright.rotation.set(...(scan.rotate ?? [0, 0, 0]));
+        upright.add(gltf.scene);
+        pose.rotation.set(...(scan.tilt ?? [0, 0, 0]));
+        pose.add(upright);
+        object = snapshot(pose);
+      } finally {
+        disposeObject(gltf.scene, true);
+      }
+    } else {
+      if (!this.root) {
+        this.root = createRoot(this.gl.domElement);
+        await this.root.configure({ gl: this.gl, frameloop: 'never', dpr: 1,
+          size: { width: 200, height: 200, top: 0, left: 0 }, events: undefined });
+      }
+      let source: THREE.Group | undefined;
+      try {
+        source = await new Promise<THREE.Group>((resolve, reject) => {
+          this.store = this.root!.render(
+            <BuildBoundary key={id} fail={reject}><BuildModel id={id} ready={resolve} /></BuildBoundary>,
+          );
+        });
+        // Let layout effects (useFrame subscriptions) finish, then settle the
+        // model's own scale/pose before measuring. No continuous Fiber loop runs.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        this.store!.getState().advance(this.time += 1 / 60, false);
+        this.store!.getState().advance(this.time += 1 / 60, false);
+        object = snapshot(source);
+      } finally {
+        this.root.render(null);
+        if (source) disposeObject(source);
+      }
+    }
+
+    object.updateWorldMatrix(true, true);
+    const bounds = new THREE.Box3().setFromObject(object);
+    const dimensions = bounds.getSize(new THREE.Vector3());
+    const fit = foodSizeOf(id) / Math.max(dimensions.x, dimensions.y, dimensions.z, 0.001);
+    const fitted = new THREE.Group();
+    fitted.scale.setScalar(fit);
+    fitted.add(object);
+    const { geometries, textures } = resources(fitted);
+    let bytes = 0;
+    // Include both CPU arrays and approximate GPU allocation, plus mipmaps.
+    for (const geometry of geometries) {
+      for (const attribute of Object.values(geometry.attributes)) bytes += attribute.array.byteLength * 2;
+      if (geometry.index) bytes += geometry.index.array.byteLength * 2;
+    }
+    for (const texture of textures) {
+      const image = texture.image as HTMLCanvasElement;
+      bytes += image.width * image.height * 4 * (1 + 4 / 3);
+    }
+    return { object: fitted, bytes: Math.ceil(bytes), dispose: () => disposeObject(fitted) };
+  }
+
+  dispose() { this.root?.unmount(); }
+}

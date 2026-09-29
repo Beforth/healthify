@@ -1,8 +1,7 @@
-import { useRef } from 'react';
-import FoodCanvas from './FoodCanvas';
+import { useLayoutEffect, useRef } from 'react';
 import FoodIcon from '../../components/FoodIcon';
-import FitScale from './FitScale';
-import { FOOD_MODELS, foodSizeOf } from './foodRegistry';
+import { FOOD_MODELS } from './foodRegistry';
+import { attachPreview } from './PreviewRenderer';
 
 /** A small, auto-rotating preview of a food's real 3D model — used on the picker.
  *  Draggable to spin by hand, same as the other 3D views.
@@ -21,17 +20,45 @@ export default function FoodThumbnail3D({
   size?: number;
   scale?: number;
 }) {
-  const cutProgressRef = useRef(0);
-  const Model = FOOD_MODELS[foodId];
-  if (!Model) return <FoodIcon id={foodId} size={size} />;
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const fallback = useRef<HTMLDivElement>(null);
+  const drag = useRef({ x: 0, y: 0, moved: false });
+  const hasModel = Boolean(FOOD_MODELS[foodId]);
+  useLayoutEffect(() => {
+    const surface = canvas.current;
+    if (!hasModel || !surface) return;
+    surface.style.opacity = '0';
+    if (fallback.current) fallback.current.style.visibility = 'visible';
+    let painted = false;
+    try {
+      return attachPreview(foodId, surface, scale, () => {
+        if (painted) return;
+        painted = true;
+        surface.style.opacity = '1';
+        if (fallback.current) fallback.current.style.visibility = 'hidden';
+      });
+    } catch (error) {
+      console.warn('3D previews unavailable; showing food illustrations.', error);
+    }
+  }, [foodId, hasModel, scale, size]);
+  if (!hasModel) return <FoodIcon id={foodId} size={size} />;
 
   return (
-    <FoodCanvas height={size} width={size} autoRotate controlsEnabled>
-      <group scale={scale}>
-        <FitScale target={foodSizeOf(foodId)}>
-          <Model cutProgressRef={cutProgressRef} />
-        </FitScale>
-      </group>
-    </FoodCanvas>
+    <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
+      <div ref={fallback}><FoodIcon id={foodId} size={size} /></div>
+      <canvas ref={canvas} width={size} height={size} aria-label={`Rotate ${foodId} preview`}
+        data-food-preview={foodId}
+        style={{ position: 'absolute', inset: 0, width: size, height: size, opacity: 0, touchAction: 'none' }}
+        onPointerDown={(event) => {
+          drag.current = { x: event.clientX, y: event.clientY, moved: false };
+        }}
+        onPointerMove={(event) => {
+          if (event.buttons && Math.hypot(event.clientX - drag.current.x, event.clientY - drag.current.y) > 5) {
+            drag.current.moved = true;
+          }
+        }}
+        onClick={(event) => { if (drag.current.moved) event.stopPropagation(); }}
+      />
+    </div>
   );
 }
