@@ -1,6 +1,6 @@
 import { useGLTF } from '@react-three/drei';
 import { FOODS } from '../data/nutritionData';
-import { FOOD_MODELS, PREVIEW_SCANS } from '../game/food3d/foodRegistry';
+import { FOOD_MODELS, PREVIEW_SCANS, preloadForGame } from '../game/food3d/foodRegistry';
 import { warmPreviewCache } from '../game/food3d/PreviewRenderer';
 
 export interface PreloadProgress {
@@ -125,12 +125,32 @@ class ModelPreloader {
     if (this.backgroundStarted) return;
     this.backgroundStarted = true;
 
-    // Queue every food that has a 3D preview, in FOODS[] page order (page 1 first).
-    // PreviewRenderer builds them into cache one-at-a-time during requestIdleCallback
-    // slots — zero main-thread blocking, invisible to the user, preempted immediately
-    // if any real food card needs building.
     const ids = foodIdsWithPreviews();
+
+    // 1. Warm the thumbnail PreviewCache (builds Three.js geometry for the picker cards).
     warmPreviewCache(ids);
+
+    // 2. Also warm drei's useGLTF Suspense cache, page-by-page via idle callbacks.
+    //    When the game screen mounts, useGLTF() reads from cache synchronously
+    //    so the model paints on the very first frame.
+    //    8 foods per idle slot matches the picker page size.
+    const PAGE = 8;
+    let offset = 0;
+    const scheduleNext = () => {
+      if (offset >= ids.length) return;
+      const batch = ids.slice(offset, offset + PAGE);
+      offset += PAGE;
+      const cb = () => {
+        batch.forEach((id) => preloadForGame(id));
+        scheduleNext();
+      };
+      if ('requestIdleCallback' in window) {
+        (window as Window).requestIdleCallback(cb, { timeout: 5000 });
+      } else {
+        setTimeout(cb, 500);
+      }
+    };
+    scheduleNext();
   }
 }
 

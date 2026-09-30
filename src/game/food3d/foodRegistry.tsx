@@ -1,4 +1,5 @@
 import type { ComponentType, MutableRefObject } from 'react';
+import { useGLTF } from '@react-three/drei';
 import DonutModel from './DonutModel';
 import ChocolateBarModel from './ChocolateBarModel';
 import MangoModel from './MangoModel';
@@ -319,4 +320,35 @@ const FOOD_SIZES: Record<string, number> = {
 /** The on-screen footprint target for a food, in world units. */
 export function foodSizeOf(id: string): number {
   return FOOD_SIZES[id] ?? DEFAULT_TARGET;
+}
+
+/**
+ * Fire-and-forget: pre-populate drei's useGLTF Suspense cache for every GLB
+ * a food needs during gameplay (its hand-built model and/or its scanned halves).
+ * Call this the moment the user selects a food so the download overlaps the
+ * route transition. When the game screen mounts, useGLTF() reads from cache
+ * synchronously and the model paints on the very first frame.
+ */
+export function preloadForGame(id: string): void {
+  const BASE = import.meta.env.BASE_URL;
+  // Scanned whole/half geometry used in the game screen
+  const scan = SCANNED[id];
+  if (scan) useGLTF.preload(`${BASE}${scan.url}`);
+
+  // Hand-built models that load their own GLB via useGLTF inside the component
+  const handBuiltUrls: Partial<Record<string, string>> = {
+    'chocolate-bar':  `${BASE}models/chocolate.glb`,
+    pineapple:        `${BASE}models/pineapple.glb`,
+    'sweet-potato':   `${BASE}models/sweet-potato.glb`,
+    burger:           `${BASE}models/burger.glb`,
+    broccoli:         `${BASE}models/broccoli.glb`,
+    peanuts:          `${BASE}models/peanut.glb`,
+    'soft-drink':     `${BASE}models/soft-drink.glb`,
+    'potato-chips':   `${BASE}models/poptao-chip.glb`,
+    corn:             `${BASE}models/sweet corn.glb`,
+    milk:             `${BASE}models/milk.glb`,
+    'cream-biscuits': `${BASE}models/cream_biscuit.glb`,
+  };
+  const url = handBuiltUrls[id];
+  if (url) useGLTF.preload(url);
 }

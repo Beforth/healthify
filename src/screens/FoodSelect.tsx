@@ -7,6 +7,7 @@ import { nextRequiredCategory, useGameStore } from '../store/gameStore';
 import Breadcrumbs from '../components/Breadcrumbs';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
 import { modelPreloader } from '../services/modelPreloader';
+import { preloadForGame } from '../game/food3d/foodRegistry';
 
 const PAGE_SIZE = 8;
 
@@ -32,6 +33,17 @@ export default function FoodSelect() {
   const totalPages = Math.max(1, Math.ceil(visibleFoods.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  // Pre-populate drei's Suspense cache for every food on the current page so
+  // useGLTF() resolves synchronously when the game screen mounts.
+  // Runs whenever the visible page changes (pagination, search, filter).
+  useEffect(() => {
+    pageItems.forEach((food) => preloadForGame(food.id));
+  // pageItems identity changes whenever safePage/categoryFilter/query changes;
+  // listing them individually avoids a stale-closure dep warning.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safePage, categoryFilter, query]);
+
 
   return (
     <div className="screen" style={{ justifyContent: 'flex-start', padding: '0 20px 48px' }}>
@@ -231,8 +243,12 @@ export default function FoodSelect() {
               whileHover={locked ? undefined : { y: -5 }}
               onClick={() => {
                 if (locked) return;
+                preloadForGame(food.id); // ensure drei cache is warm before navigate
                 selectFood(food.id, food.category);
                 navigate(`/play/${food.id}`);
+              }}
+              onMouseEnter={() => {
+                if (!locked) preloadForGame(food.id); // desktop: preload on hover
               }}
               style={{
                 position: 'relative',
