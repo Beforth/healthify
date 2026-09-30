@@ -47,29 +47,47 @@ export default function TourOverlay() {
       return;
     }
     let frame: number;
+    let timer: ReturnType<typeof setInterval> | undefined;
     let last: Spotlight | null = null;
+    let stableFrames = 0;
     const pad = 10;
     const close = (a: number, b: number) => Math.abs(a - b) < 0.5;
-    const track = () => {
+
+    const measure = () => {
       const el = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
       if (el) {
         const r = el.getBoundingClientRect();
         const next = { top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 };
-        // Skip the setState when nothing moved — the target is often mid-animation
-        // (framer-motion entrances etc.), so this still tracks it, but a wasted
-        // setState every single frame was starving the step-change re-render.
         if (!last || !close(last.top, next.top) || !close(last.left, next.left) || !close(last.width, next.width) || !close(last.height, next.height)) {
           last = next;
+          stableFrames = 0;
           setSpotlight(next);
+        } else {
+          stableFrames++;
         }
       } else if (last !== null) {
         last = null;
+        stableFrames = 0;
         setSpotlight(null);
       }
-      frame = requestAnimationFrame(track);
     };
-    track();
-    return () => cancelAnimationFrame(frame);
+
+    // Track at 60fps during entrance animations; once stable for 3 frames, throttle to 10fps.
+    const trackFast = () => {
+      measure();
+      if (stableFrames < 3) {
+        frame = requestAnimationFrame(trackFast);
+      } else {
+        // Element has settled — switch to cheap interval polling.
+        timer = setInterval(measure, 100);
+      }
+    };
+    frame = requestAnimationFrame(trackFast);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearInterval(timer);
+    };
   }, [step, location.pathname]);
 
   if (!step) return null;

@@ -28,7 +28,7 @@ interface View {
  * context across pagination and routes; only dirty/visible surfaces are drawn
  * on demand. Idle CPU and GPU usage drop to zero. */
 class PreviewRenderer {
-  private gl = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  private gl = new THREE.WebGLRenderer({ alpha: true, antialias: false });
   private builder = new PreviewBuilder(this.gl);
   private cache = new PreviewCache<PreviewResource>(MAX_MODELS, MAX_BYTES);
   private posters = new Map<string, { canvas: HTMLCanvasElement; camera: THREE.Vector3 }>();
@@ -46,7 +46,7 @@ class PreviewRenderer {
     draws: 0, frames: 0, failures: 0, buildMs: [] as { id: string; ms: number }[], attachMs: [] as number[] };
   /** Ordered list of food IDs to build into cache ahead of time during browser idle periods. */
   private warmupQueue: string[] = [];
-  private warmupBuilding = false;
+
 
   constructor() {
     this.gl.setClearColor(0x000000, 0);
@@ -252,9 +252,9 @@ class PreviewRenderer {
   }
 
   private scheduleWarmup() {
-    if (this.warmupBuilding || this.warmupQueue.length === 0 || this.disposed) return;
+    if (this.building || this.warmupQueue.length === 0 || this.disposed) return;
     const run = (deadline?: IdleDeadline) => {
-      // Skip this idle slot if we're already loading something visible.
+      // Skip this idle slot if a visible card is being built.
       if (this.building || this.disposed) {
         if ('requestIdleCallback' in window) {
           (window as Window).requestIdleCallback(run, { timeout: 2000 });
@@ -286,9 +286,11 @@ class PreviewRenderer {
       if (!this.cache.has(id) && !this.failed.has(id)) break;
       this.warmupQueue.shift();
     }
+    // Use the shared `building` flag so visible-card builds and warmup are
+    // mutually exclusive — they both use the same PreviewBuilder Fiber root.
     if (this.warmupQueue.length === 0 || this.disposed || this.building) return;
     const id = this.warmupQueue.shift()!;
-    this.warmupBuilding = true;
+    this.building = true;
     try {
       const resource = await this.builder.build(id);
       if (this.disposed) {
@@ -300,18 +302,11 @@ class PreviewRenderer {
     } catch {
       this.failed.add(id);
     } finally {
-      this.warmupBuilding = false;
-      // Paint any attached view that just got a cache hit.
-      for (const view of this.visibleViews()) {
-        if (view.id === id && !view.painted) {
-          const res = this.cache.get(id);
-          if (res && !this.lost && !document.hidden) {
-            this.draw(view, res);
-            view.needsRender = false;
-          }
-        }
-      }
-      if (this.warmupQueue.length > 0) this.scheduleWarmup();
+      this.building = false;
+      // wake() will call buildNext() first if any visible card needs building.
+      this.wake();
+      // Schedule the next warmup item only if buildNext didn't claim the slot.
+      if (!this.building && this.warmupQueue.length > 0) this.scheduleWarmup();
     }
   }
 

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { memo, useLayoutEffect, useRef } from 'react';
 import FoodIcon from '../../components/FoodIcon';
 import { FOOD_MODELS } from './foodRegistry';
 import { attachPreview } from './PreviewRenderer';
@@ -10,8 +10,10 @@ import { attachPreview } from './PreviewRenderer';
  *  `scale` shrinks the model inside the canvas box without touching the box
  *  itself, so a caller can widen the canvas while keeping every food a touch
  *  smaller and fully inside it. Foods without a model fall back to their 2D icon,
- *  so every card on the picker still shows the food rather than an empty square. */
-export default function FoodThumbnail3D({
+ *  so every card on the picker still shows the food rather than an empty square.
+ *  Memoized — parent re-renders during search/filter never re-run 3D attachment
+ *  unless foodId or scale actually changes. */
+const FoodThumbnail3D = memo(function FoodThumbnail3D({
   foodId,
   size = 96,
   scale = 1,
@@ -31,7 +33,11 @@ export default function FoodThumbnail3D({
     } catch (error) {
       console.warn('3D previews unavailable; showing food illustrations.', error);
     }
-  }, [foodId, hasModel, scale, size]);
+  // `size` is intentionally excluded — it only controls canvas element
+  // dimensions (already set via HTML attrs) and must not re-trigger a full
+  // attachPreview teardown/remount on every layout shift.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foodId, hasModel, scale]);
 
   if (!hasModel) return <FoodIcon id={foodId} size={size} />;
 
@@ -64,4 +70,6 @@ export default function FoodThumbnail3D({
       />
     </div>
   );
-}
+});
+
+export default FoodThumbnail3D;

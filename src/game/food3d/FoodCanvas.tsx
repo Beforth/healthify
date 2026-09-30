@@ -79,7 +79,7 @@ export default function FoodCanvas({
 
   return (
     <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: 'none' }}>
-      <Canvas camera={{ position: cameraPos, fov: 46 }} dpr={[1, 2]}>
+      <Canvas camera={{ position: cameraPos, fov: 46 }} dpr={[1, 1.5]}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[3.2, 4.8, 3.5]} intensity={1.35} />
         <directionalLight position={[-3.5, 1.5, -2]} intensity={0.45} color="#cfe8ff" />

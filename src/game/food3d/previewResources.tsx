@@ -39,6 +39,26 @@ function disposeObject(object: THREE.Object3D, closeImages = false) {
   });
 }
 
+/** Rough GPU memory estimate: vertex/index buffers + mip-chain for each texture. */
+function estimateBytes(object: THREE.Object3D): number {
+  const { geometries, textures } = resources(object);
+  let bytes = 0;
+  for (const geo of geometries) {
+    for (const attr of Object.values(geo.attributes)) {
+      bytes += (attr as THREE.BufferAttribute).array.byteLength;
+    }
+    if (geo.index) bytes += geo.index.array.byteLength;
+  }
+  for (const tex of textures) {
+    const img = tex.image as { width?: number; height?: number } | undefined;
+    const w = img?.width ?? 0;
+    const h = img?.height ?? 0;
+    // 4 bytes/pixel × 4/3 for mip chain
+    bytes += Math.ceil(w * h * 4 * (4 / 3));
+  }
+  return Math.max(bytes, 1024); // floor at 1 KB so zero-geometry guards pass
+}
+
 function cloneProcedural(source: THREE.Object3D): THREE.Object3D {
   const result = source.clone(true);
   result.traverse((node) => {
@@ -157,7 +177,7 @@ export class PreviewBuilder {
     const fitted = new THREE.Group();
     fitted.scale.setScalar(fit);
     fitted.add(object);
-    return { object: fitted, bytes: 1024, dispose: () => disposeObject(fitted) };
+    return { object: fitted, bytes: estimateBytes(fitted), dispose: () => disposeObject(fitted) };
   }
 
   dispose() { this.root?.unmount(); }
