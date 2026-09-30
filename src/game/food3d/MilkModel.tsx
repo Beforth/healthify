@@ -28,7 +28,10 @@ export function MilkWholeGeometry() {
     scene.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (geometry || !mesh.isMesh) return;
-      geometry = mesh.geometry;
+      geometry = mesh.geometry.clone();
+      if (!geometry.attributes.normal) {
+        geometry.computeVertexNormals();
+      }
       const material = mesh.material as THREE.MeshStandardMaterial;
       map = material?.map ?? null;
     });
@@ -42,9 +45,10 @@ export function MilkWholeGeometry() {
     <mesh geometry={source.geometry} castShadow receiveShadow>
       <meshStandardMaterial
         map={source.map}
-        flatShading
-        roughness={0.35}
-        envMapIntensity={1.1}
+        flatShading={false}
+        roughness={0.25}
+        metalness={0.08}
+        envMapIntensity={1.25}
       />
     </mesh>
   );

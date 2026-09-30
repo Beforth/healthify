@@ -92,7 +92,10 @@ export function BurgerHalfGeometry({ isLeft = false }: { isLeft?: boolean }) {
     scene.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (geometry || !mesh.isMesh) return;
-      geometry = mesh.geometry;
+      geometry = mesh.geometry.clone();
+      if (!geometry.attributes.normal) {
+        geometry.computeVertexNormals();
+      }
       const material = mesh.material as THREE.MeshStandardMaterial;
       map = material?.map ?? null;
     });
@@ -100,23 +103,27 @@ export function BurgerHalfGeometry({ isLeft = false }: { isLeft?: boolean }) {
     return { geometry, map };
   }, [scene]);
 
-  const half = useMemo(
-    () => (source.geometry ? sliceAtX(source.geometry, isLeft) : null),
-    [source.geometry, isLeft],
-  );
+  const half = useMemo(() => {
+    if (!source.geometry) return null;
+    const sliced = sliceAtX(source.geometry, isLeft);
+    if (sliced.geometry && !sliced.geometry.attributes.normal) {
+      sliced.geometry.computeVertexNormals();
+    }
+    return sliced;
+  }, [source.geometry, isLeft]);
 
   if (!half) return null;
 
   return (
     <group>
-      {/* The scan ships without normals, so it is lit flat — which suits a
-          burger's crisp bun and seared patty better than smoothing them over. */}
+      {/* Smooth vertex normals let the seeded bun dome and succulent patty catch glossy highlights */}
       <mesh geometry={half.geometry} castShadow receiveShadow>
         <meshStandardMaterial
           map={source.map}
-          flatShading
-          roughness={0.8}
-          envMapIntensity={0.7}
+          roughness={0.58}
+          metalness={0.04}
+          envMapIntensity={1.1}
+          flatShading={false}
         />
       </mesh>
 

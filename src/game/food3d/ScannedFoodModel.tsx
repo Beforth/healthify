@@ -27,6 +27,11 @@ export interface ScannedFoodConfig {
   rim: string;
   flesh: string;
   heart?: string;
+  /** Food is already open, liquid, or loose — skip cutting and keep intact */
+  noCut?: boolean;
+  roughness?: number;
+  metalness?: number;
+  envMapIntensity?: number;
 }
 
 interface ScannedFoodProps {
@@ -73,18 +78,58 @@ function CutFace({ half, faceSign, config }: { half: SlicedHalf; faceSign: numbe
   return (
     <group>
       <mesh geometry={layers.rim} position={[faceSign * 0.004, 0, 0]}>
-        <meshStandardMaterial color={config.rim} roughness={0.85} side={THREE.DoubleSide} />
+        <meshStandardMaterial color={config.rim} roughness={0.7} side={THREE.DoubleSide} />
       </mesh>
       {layers.flesh && (
         <mesh geometry={layers.flesh} position={[faceSign * 0.006, 0, 0]}>
-          <meshStandardMaterial color={config.flesh} roughness={0.8} side={THREE.DoubleSide} />
+          <meshStandardMaterial color={config.flesh} roughness={0.65} side={THREE.DoubleSide} />
         </mesh>
       )}
       {layers.heart && (
         <mesh geometry={layers.heart} position={[faceSign * 0.008, 0, 0]}>
-          <meshStandardMaterial color={config.heart} roughness={0.8} side={THREE.DoubleSide} />
+          <meshStandardMaterial color={config.heart} roughness={0.65} side={THREE.DoubleSide} />
         </mesh>
       )}
+    </group>
+  );
+}
+
+function ScannedWholeGeometry({ config }: { config: ScannedFoodConfig }) {
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}${config.url}`);
+
+  const source = useMemo(() => {
+    let geometry: THREE.BufferGeometry | null = null;
+    let map: THREE.Texture | null = null;
+
+    scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (geometry || !mesh.isMesh) return;
+      geometry = mesh.geometry.clone();
+      if (!geometry.attributes.normal) {
+        geometry.computeVertexNormals();
+      }
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      map = material?.map ?? null;
+    });
+
+    return { geometry, map };
+  }, [scene]);
+
+  if (!source.geometry) return null;
+
+  const [rx, ry, rz] = config.rotate ?? [0, 0, 0];
+
+  return (
+    <group rotation={[rx, ry, rz]}>
+      <mesh geometry={source.geometry} castShadow receiveShadow>
+        <meshStandardMaterial
+          map={source.map}
+          roughness={config.roughness ?? 0.52}
+          metalness={config.metalness ?? 0.04}
+          envMapIntensity={config.envMapIntensity ?? 1.1}
+          flatShading={false}
+        />
+      </mesh>
     </group>
   );
 }
@@ -101,7 +146,10 @@ function ScannedHalfGeometry({ config, isLeft = false }: { config: ScannedFoodCo
     scene.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (geometry || !mesh.isMesh) return;
-      geometry = mesh.geometry;
+      geometry = mesh.geometry.clone();
+      if (!geometry.attributes.normal) {
+        geometry.computeVertexNormals();
+      }
       const material = mesh.material as THREE.MeshStandardMaterial;
       map = material?.map ?? null;
     });
@@ -119,6 +167,9 @@ function ScannedHalfGeometry({ config, isLeft = false }: { config: ScannedFoodCo
     upright.rotateY(ry);
     upright.rotateZ(rz);
     const sliced = sliceAtX(upright, isLeft);
+    if (sliced.geometry && !sliced.geometry.attributes.normal) {
+      sliced.geometry.computeVertexNormals();
+    }
     upright.dispose();
     return sliced;
   }, [source.geometry, config.rotate, isLeft]);
@@ -128,7 +179,13 @@ function ScannedHalfGeometry({ config, isLeft = false }: { config: ScannedFoodCo
   return (
     <group>
       <mesh geometry={half.geometry} castShadow receiveShadow>
-        <meshStandardMaterial map={source.map} flatShading roughness={0.8} envMapIntensity={0.7} />
+        <meshStandardMaterial
+          map={source.map}
+          roughness={config.roughness ?? 0.52}
+          metalness={config.metalness ?? 0.04}
+          envMapIntensity={config.envMapIntensity ?? 1.1}
+          flatShading={false}
+        />
       </mesh>
 
       <CutFace half={half} faceSign={isLeft ? -1 : 1} config={config} />
@@ -147,18 +204,20 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
   const scale = config.scale ?? 2.1;
 
   useFrame((state, delta) => {
-    progress.current = THREE.MathUtils.damp(progress.current, cutProgressRef.current, 25, delta);
-    const p = progress.current;
-    const kick = tickKick(delta);
-    const sep = p * 0.55 + kick * 0.32;
+    if (!config.noCut) {
+      progress.current = THREE.MathUtils.damp(progress.current, cutProgressRef.current, 25, delta);
+      const p = progress.current;
+      const kick = tickKick(delta);
+      const sep = p * 0.55 + kick * 0.32;
 
-    if (innerA.current) {
-      innerA.current.position.x = sep;
-      innerA.current.rotation.y = Math.min(sep * 0.75, 0.45);
-    }
-    if (innerB.current) {
-      innerB.current.position.x = -sep;
-      innerB.current.rotation.y = -Math.min(sep * 0.75, 0.45);
+      if (innerA.current) {
+        innerA.current.position.x = sep;
+        innerA.current.rotation.y = Math.min(sep * 0.75, 0.45);
+      }
+      if (innerB.current) {
+        innerB.current.position.x = -sep;
+        innerB.current.rotation.y = -Math.min(sep * 0.75, 0.45);
+      }
     }
 
     squish.current *= Math.exp(-delta * 6);
@@ -173,7 +232,9 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
         scale * (1 + wobble * 0.08) * hoverBoost,
       );
       outer.current.position.y =
-        cutProgressRef.current > 0.02 ? 0 : Math.sin(state.clock.elapsedTime * 1.6) * 0.04;
+        !config.noCut && cutProgressRef.current > 0.02
+          ? 0
+          : Math.sin(state.clock.elapsedTime * 1.6) * 0.04;
     }
   });
 
@@ -190,12 +251,18 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
       onPointerOut={() => setHovered(false)}
     >
       <group rotation={config.tilt ?? [0, 0, 0]}>
-        <group ref={innerA}>
-          <ScannedHalfGeometry config={config} isLeft />
-        </group>
-        <group ref={innerB}>
-          <ScannedHalfGeometry config={config} isLeft={false} />
-        </group>
+        {config.noCut ? (
+          <ScannedWholeGeometry config={config} />
+        ) : (
+          <>
+            <group ref={innerA}>
+              <ScannedHalfGeometry config={config} isLeft />
+            </group>
+            <group ref={innerB}>
+              <ScannedHalfGeometry config={config} isLeft={false} />
+            </group>
+          </>
+        )}
       </group>
     </group>
   );

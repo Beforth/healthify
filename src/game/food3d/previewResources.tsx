@@ -95,6 +95,32 @@ export class PreviewBuilder {
     const scan = PREVIEW_SCANS[id];
     if (scan) {
       const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}${scan.url}`);
+      gltf.scene.traverse((node) => {
+        if (node instanceof THREE.Mesh) {
+          if (!node.geometry.attributes.normal) {
+            node.geometry.computeVertexNormals();
+          }
+          if (node.material) {
+            const mats = Array.isArray(node.material) ? node.material : [node.material];
+            mats.forEach((mat) => {
+              if ('flatShading' in mat) {
+                (mat as THREE.MeshStandardMaterial).flatShading = false;
+              }
+              if ('roughness' in mat) {
+                (mat as THREE.MeshStandardMaterial).roughness = THREE.MathUtils.clamp(
+                  (mat as THREE.MeshStandardMaterial).roughness ?? 0.5,
+                  0.35,
+                  0.65,
+                );
+              }
+              if ('envMapIntensity' in mat) {
+                (mat as THREE.MeshStandardMaterial).envMapIntensity = 1.15;
+              }
+              mat.needsUpdate = true;
+            });
+          }
+        }
+      });
       const pose = new THREE.Group();
       const upright = new THREE.Group();
       upright.rotation.set(...(scan.rotate ?? [0, 0, 0]));

@@ -26,17 +26,33 @@ const topicMeta: Record<QuizTopic, { label: string; icon: typeof Droplet; color:
   vitamins: { label: 'Vitamins & Minerals', icon: Citrus, color: '#8bd450' },
 };
 
-/** Foods that never get a cutting beat — a dal, a can or a crisp is something you
- *  prepare, not slice open, so the play screen shows them whole with no knife and
- *  lets the child go straight to the microscope. */
+/** Foods that never get a cutting beat — drinks, bowls of loose grains or flakes,
+ *  shelled nuts, loose candies or leaves. They are already opened or poured,
+ *  so they stay whole with no knife or cut animation, and let the child inspect directly. */
 const NO_CUT_FOODS = new Set([
+  'milk',
+  'bubble-tea',
+  'oats',
+  'walnuts',
+  'spinach',
+  'candy',
+  'curd',
+  'green-peas',
+  'peanuts',
+  'rajma',
+  'urad-dal',
+  'moong-dal',
+  'chana-dal',
   'masoor-dal',
   'toor-dal',
-  'chana-dal',
   'soybeans',
+  'brown-rice',
+  'bajra',
+  'ragi',
+  'cheese-fries',
+  'pasta',
   'soft-drink',
   'potato-chips',
-  'milk',
 ]);
 
 export default function GameScreen() {
@@ -457,14 +473,14 @@ export default function GameScreen() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 700, color: '#1c6b48' }}>
                     <Hand size={16} color="#1c6b48" />{' '}
-                    {noCut ? 'No cutting needed — just peek inside' : FoodModel ? 'Drag down to cut' : 'Tap the button to cut'}
+                    {noCut ? 'Ready to inspect — no cutting needed!' : FoodModel ? 'Drag down to cut' : 'Tap the button to cut'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 600, color: '#387853' }}>
-                    <span style={{ fontSize: '1rem', lineHeight: 1 }}>🔪</span>{' '}
-                    {noCut ? 'It stays whole the whole time' : FoodModel ? 'Move slowly for best results' : 'Watch it fall right through'}
+                    <span style={{ fontSize: '1rem', lineHeight: 1 }}>{noCut ? '✨' : '🔪'}</span>{' '}
+                    {noCut ? 'Already opened & ready to examine' : FoodModel ? 'Move slowly for best results' : 'Watch it fall right through'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 600, color: '#387853' }}>
-                    <Sparkles size={16} color="#10b981" /> Watch for the cool effects!
+                    <Sparkles size={16} color="#10b981" /> {noCut ? 'Tap below to zoom in with the microscope!' : 'Watch for the cool effects!'}
                   </div>
                 </motion.div>
               </div>
@@ -509,7 +525,7 @@ export default function GameScreen() {
                         }}
                       />
                     )}
-                    {flashKey > 0 && <SliceImpact key={flashKey} />}
+                    {!noCut && flashKey > 0 && <SliceImpact key={flashKey} />}
                   </FoodCanvas>
                 ) : (
                   <div
