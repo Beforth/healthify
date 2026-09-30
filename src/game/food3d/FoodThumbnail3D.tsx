@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import FoodIcon from '../../components/FoodIcon';
 import { FOOD_MODELS } from './foodRegistry';
 import { attachPreview } from './PreviewRenderer';
@@ -24,12 +24,16 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const drag = useRef({ x: 0, y: 0, moved: false });
+  const [ready, setReady] = useState(false);
   const hasModel = Boolean(FOOD_MODELS[foodId]);
+
   useLayoutEffect(() => {
     const surface = canvas.current;
     if (!hasModel || !surface) return;
     try {
-      return attachPreview(foodId, surface, scale, () => {});
+      return attachPreview(foodId, surface, scale, () => {
+        setReady(true);
+      });
     } catch (error) {
       console.warn('3D previews unavailable; showing food illustrations.', error);
     }
@@ -43,6 +47,22 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
 
   return (
     <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
+      {/* Instant 2D placeholder backdrop: zero pop-in, zero blank frames */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: ready ? 0 : 1,
+          transition: 'opacity 0.22s ease-out',
+          pointerEvents: 'none',
+        }}
+      >
+        <FoodIcon id={foodId} size={size} />
+      </div>
+
       <canvas
         ref={canvas}
         width={size}
@@ -55,6 +75,8 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
           width: size,
           height: size,
           touchAction: 'none',
+          opacity: ready ? 1 : 0,
+          transition: 'opacity 0.18s ease-in',
         }}
         onPointerDown={(event) => {
           drag.current = { x: event.clientX, y: event.clientY, moved: false };

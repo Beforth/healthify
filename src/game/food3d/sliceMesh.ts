@@ -24,6 +24,30 @@ export interface SlicedHalf {
  * edges (Sutherland–Hodgman), which preserves winding, so the surface keeps
  * facing the way the artist built it.
  */
+// Pre-allocated static vectors to eliminate 100,000+ GC object allocations during slicing
+const v0 = new THREE.Vector3();
+const v1 = new THREE.Vector3();
+const v2 = new THREE.Vector3();
+const p = [v0, v1, v2];
+
+const u0 = new THREE.Vector2();
+const u1 = new THREE.Vector2();
+const u2 = new THREE.Vector2();
+const t = [u0, u1, u2];
+
+const polyP = [
+  new THREE.Vector3(),
+  new THREE.Vector3(),
+  new THREE.Vector3(),
+  new THREE.Vector3(),
+];
+const polyT = [
+  new THREE.Vector2(),
+  new THREE.Vector2(),
+  new THREE.Vector2(),
+  new THREE.Vector2(),
+];
+
 export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): SlicedHalf {
   const geo = source.index ? source.toNonIndexed() : source;
   const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -38,16 +62,8 @@ export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): S
   let zMin = Infinity;
   let zMax = -Infinity;
 
-  // Every triangle the plane passes through contributes a short piece of the
-  // cross-section. The pieces are only a scatter — on a coarse model the plane
-  // clips disconnected slivers rather than a connected band — so this keeps them
-  // and lets the cap work out the rim for itself from the outer envelope.
+  // Cross-section points along the cut plane x = 0
   const seen = new Map<string, { y: number; z: number }>();
-
-  const p = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
-  const t = [new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2()];
-  const polyP: THREE.Vector3[] = [];
-  const polyT: THREE.Vector2[] = [];
 
   for (let i = 0; i + 2 < pos.count; i += 3) {
     for (let k = 0; k < 3; k++) {
@@ -56,8 +72,7 @@ export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): S
       else t[k].set(0, 0);
     }
 
-    polyP.length = 0;
-    polyT.length = 0;
+    let polyLen = 0;
 
     for (let k = 0; k < 3; k++) {
       const cur = k;
@@ -67,18 +82,18 @@ export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): S
       const keepCur = dCur >= 0;
 
       if (keepCur) {
-        polyP.push(p[cur].clone());
-        polyT.push(t[cur].clone());
+        polyP[polyLen].copy(p[cur]);
+        polyT[polyLen].copy(t[cur]);
+        polyLen++;
       }
 
       if (keepCur !== dNext >= 0) {
         const s = dCur / (dCur - dNext);
-        const hit = p[cur].clone().lerp(p[next], s);
-        // land exactly on the plane whatever the float maths says, so the two
-        // halves meet with no hairline gap when the food is still whole
+        const hit = polyP[polyLen];
+        hit.lerpVectors(p[cur], p[next], s);
         hit.x = 0;
-        polyP.push(hit);
-        polyT.push(t[cur].clone().lerp(t[next], s));
+        polyT[polyLen].lerpVectors(t[cur], t[next], s);
+        polyLen++;
 
         if (hit.y < yMin) yMin = hit.y;
         if (hit.y > yMax) yMax = hit.y;
@@ -89,13 +104,20 @@ export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): S
       }
     }
 
-    // the clipped polygon has 3 or 4 corners; fan it back into triangles
-    for (let k = 1; k + 1 < polyP.length; k++) {
+    // The clipped polygon has 3 or 4 corners; fan it back into triangles
+    for (let k = 1; k + 1 < polyLen; k++) {
       for (const idx of [0, k, k + 1]) {
-        outPos.push(polyP[idx].x, polyP[idx].y, polyP[idx].z);
-        outUv.push(polyT[idx].x, polyT[idx].y);
+        const pt = polyP[idx];
+        const uvPt = polyT[idx];
+        outPos.push(pt.x, pt.y, pt.z);
+        outUv.push(uvPt.x, uvPt.y);
       }
     }
+  }
+
+  // Dispose temporary non-indexed geometry to prevent GPU/heap leaks
+  if (geo !== source) {
+    geo.dispose();
   }
 
   const half = new THREE.BufferGeometry();
@@ -103,8 +125,6 @@ export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): S
   half.setAttribute('uv', new THREE.Float32BufferAttribute(outUv, 2));
 
   if (seen.size < 3) {
-    // the plane missed the mesh entirely — fall back to the model's own bounds
-    // so the cap still has somewhere sensible to sit
     source.computeBoundingBox();
     const b = source.boundingBox ?? new THREE.Box3();
     return {
@@ -114,12 +134,9 @@ export function sliceAtX(source: THREE.BufferGeometry, keepPositive: boolean): S
     };
   }
 
-  // Sort the corners into a loop by the angle they make with the middle of the
-  // face. That holds for any outline you can see every edge of from its centre,
-  // which a single slice through a piece of food always is.
   const points = [...seen.values()];
-  const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
-  const cz = points.reduce((sum, p) => sum + p.z, 0) / points.length;
+  const cy = points.reduce((sum, pt) => sum + pt.y, 0) / points.length;
+  const cz = points.reduce((sum, pt) => sum + pt.z, 0) / points.length;
   points.sort((a, b) => Math.atan2(a.z - cz, a.y - cy) - Math.atan2(b.z - cz, b.y - cy));
 
   return { geometry: half, outline: points, cut: { yMin, yMax, zMin, zMax } };

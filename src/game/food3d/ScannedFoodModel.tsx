@@ -94,10 +94,65 @@ function CutFace({ half, faceSign, config }: { half: SlicedHalf; faceSign: numbe
   );
 }
 
-function ScannedWholeGeometry({ config }: { config: ScannedFoodConfig }) {
-  const { scene } = useGLTF(`${import.meta.env.BASE_URL}${config.url}`);
+interface SlicedCacheEntry {
+  left: SlicedHalf;
+  right: SlicedHalf;
+  map: THREE.Texture | null;
+}
 
+const SLICED_FOOD_CACHE = new Map<string, SlicedCacheEntry>();
+const WHOLE_FOOD_CACHE = new Map<string, { geometry: THREE.BufferGeometry; map: THREE.Texture | null }>();
+
+function getOrComputeSliced(config: ScannedFoodConfig, scene: THREE.Group): SlicedCacheEntry | null {
+  const key = `${config.url}:${(config.rotate ?? []).join(',')}`;
+  const cached = SLICED_FOOD_CACHE.get(key);
+  if (cached) return cached;
+
+  let geo: THREE.BufferGeometry | null = null;
+  let map: THREE.Texture | null = null;
+  scene.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (geo || !mesh.isMesh) return;
+    geo = mesh.geometry;
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    map = material?.map ?? null;
+  });
+
+  if (!geo) return null;
+
+  // Clone geometry once to rotate upright for slicing
+  const upright = (geo as THREE.BufferGeometry).clone();
+  if (!upright.attributes.normal) upright.computeVertexNormals();
+
+  const [rx, ry, rz] = config.rotate ?? [0, 0, 0];
+  upright.rotateX(rx);
+  upright.rotateY(ry);
+  upright.rotateZ(rz);
+
+  // Compute both halves in sequence from the same upright geometry
+  const right = sliceAtX(upright, true);
+  if (right.geometry && !right.geometry.attributes.normal) {
+    right.geometry.computeVertexNormals();
+  }
+
+  const left = sliceAtX(upright, false);
+  if (left.geometry && !left.geometry.attributes.normal) {
+    left.geometry.computeVertexNormals();
+  }
+
+  upright.dispose();
+
+  const entry: SlicedCacheEntry = { left, right, map };
+  SLICED_FOOD_CACHE.set(key, entry);
+  return entry;
+}
+
+function ScannedWholeGeometry({ config, scene }: { config: ScannedFoodConfig; scene: THREE.Group }) {
   const source = useMemo(() => {
+    const key = config.url;
+    const cached = WHOLE_FOOD_CACHE.get(key);
+    if (cached) return cached;
+
     let geometry: THREE.BufferGeometry | null = null;
     let map: THREE.Texture | null = null;
 
@@ -112,8 +167,11 @@ function ScannedWholeGeometry({ config }: { config: ScannedFoodConfig }) {
       map = material?.map ?? null;
     });
 
+    if (geometry) {
+      WHOLE_FOOD_CACHE.set(key, { geometry, map });
+    }
     return { geometry, map };
-  }, [scene]);
+  }, [config.url, scene]);
 
   if (!source.geometry) return null;
 
@@ -134,65 +192,6 @@ function ScannedWholeGeometry({ config }: { config: ScannedFoodConfig }) {
   );
 }
 
-function ScannedHalfGeometry({ config, isLeft = false }: { config: ScannedFoodConfig; isLeft?: boolean }) {
-  const { scene } = useGLTF(`${import.meta.env.BASE_URL}${config.url}`);
-
-  // useGLTF hands back a cached, shared scene — read what we need out of it and
-  // never mutate it, or every other copy on screen changes too.
-  const source = useMemo(() => {
-    let geometry: THREE.BufferGeometry | null = null;
-    let map: THREE.Texture | null = null;
-
-    scene.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (geometry || !mesh.isMesh) return;
-      geometry = mesh.geometry.clone();
-      if (!geometry.attributes.normal) {
-        geometry.computeVertexNormals();
-      }
-      const material = mesh.material as THREE.MeshStandardMaterial;
-      map = material?.map ?? null;
-    });
-
-    return { geometry, map };
-  }, [scene]);
-
-  const half = useMemo(() => {
-    if (!source.geometry) return null;
-    const upright = (source.geometry as THREE.BufferGeometry).clone();
-    // some scans sit at an angle that would leave the cut off-centre; straighten them
-    // so x = 0 splits through the middle of the food
-    const [rx, ry, rz] = config.rotate ?? [0, 0, 0];
-    upright.rotateX(rx);
-    upright.rotateY(ry);
-    upright.rotateZ(rz);
-    const sliced = sliceAtX(upright, isLeft);
-    if (sliced.geometry && !sliced.geometry.attributes.normal) {
-      sliced.geometry.computeVertexNormals();
-    }
-    upright.dispose();
-    return sliced;
-  }, [source.geometry, config.rotate, isLeft]);
-
-  if (!half) return null;
-
-  return (
-    <group>
-      <mesh geometry={half.geometry} castShadow receiveShadow>
-        <meshStandardMaterial
-          map={source.map}
-          roughness={config.roughness ?? 0.52}
-          metalness={config.metalness ?? 0.04}
-          envMapIntensity={config.envMapIntensity ?? 1.1}
-          flatShading={false}
-        />
-      </mesh>
-
-      <CutFace half={half} faceSign={isLeft ? -1 : 1} config={config} />
-    </group>
-  );
-}
-
 export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFoodProps) {
   const outer = useRef<THREE.Group>(null);
   const innerA = useRef<THREE.Group>(null);
@@ -202,6 +201,12 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
   const [hovered, setHovered] = useState(false);
   const tickKick = useCutKick(cutProgressRef);
   const scale = config.scale ?? 2.1;
+
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}${config.url}`);
+  const sliced = useMemo(() => {
+    if (config.noCut) return null;
+    return getOrComputeSliced(config, scene);
+  }, [config, scene]);
 
   useFrame((state, delta) => {
     if (!config.noCut) {
@@ -224,8 +229,6 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
     if (outer.current) {
       const wobble = Math.sin(state.clock.elapsedTime * 14) * squish.current;
       const hoverBoost = hovered ? 1.05 : 1;
-      // scale only near-identity — it breathes a little when poked, like the
-      // code-built foods
       outer.current.scale.set(
         scale * (1 + wobble * 0.08) * hoverBoost,
         scale * (1 - wobble * 0.1) * hoverBoost,
@@ -243,6 +246,14 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
     squish.current = 1;
   };
 
+  const matProps = sliced ? {
+    map: sliced.map,
+    roughness: config.roughness ?? 0.52,
+    metalness: config.metalness ?? 0.04,
+    envMapIntensity: config.envMapIntensity ?? 1.1,
+    flatShading: false,
+  } : null;
+
   return (
     <group
       ref={outer}
@@ -252,16 +263,24 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
     >
       <group rotation={config.tilt ?? [0, 0, 0]}>
         {config.noCut ? (
-          <ScannedWholeGeometry config={config} />
+          <ScannedWholeGeometry config={config} scene={scene} />
         ) : (
-          <>
-            <group ref={innerA}>
-              <ScannedHalfGeometry config={config} isLeft />
-            </group>
-            <group ref={innerB}>
-              <ScannedHalfGeometry config={config} isLeft={false} />
-            </group>
-          </>
+          sliced && (
+            <>
+              <group ref={innerA}>
+                <mesh geometry={sliced.left.geometry} castShadow receiveShadow>
+                  <meshStandardMaterial {...matProps!} />
+                </mesh>
+                <CutFace half={sliced.left} faceSign={-1} config={config} />
+              </group>
+              <group ref={innerB}>
+                <mesh geometry={sliced.right.geometry} castShadow receiveShadow>
+                  <meshStandardMaterial {...matProps!} />
+                </mesh>
+                <CutFace half={sliced.right} faceSign={1} config={config} />
+              </group>
+            </>
+          )
         )}
       </group>
     </group>

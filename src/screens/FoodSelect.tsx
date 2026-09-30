@@ -34,13 +34,19 @@ export default function FoodSelect() {
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  // Pre-populate drei's Suspense cache for every food on the current page so
-  // useGLTF() resolves synchronously when the game screen mounts.
-  // Runs whenever the visible page changes (pagination, search, filter).
+  // Stagger preloading of drei's game models for foods on the current page so
+  // network bandwidth is not flooded all at once.
   useEffect(() => {
-    pageItems.forEach((food) => preloadForGame(food.id));
-  // pageItems identity changes whenever safePage/categoryFilter/query changes;
-  // listing them individually avoids a stale-closure dep warning.
+    let idx = 0;
+    const timer = setInterval(() => {
+      if (idx < pageItems.length) {
+        preloadForGame(pageItems[idx].id);
+        idx++;
+      } else {
+        clearInterval(timer);
+      }
+    }, 400);
+    return () => clearInterval(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safePage, categoryFilter, query]);
 

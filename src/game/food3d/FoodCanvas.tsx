@@ -1,6 +1,7 @@
-import { Suspense, useState, type ReactNode } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { Environment, OrbitControls } from '@react-three/drei';
+import { Component, Suspense, useRef, useState, type ReactNode } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import * as THREE from 'three';
 
 interface FoodCanvasProps {
   children: ReactNode;
@@ -62,6 +63,58 @@ function GroundShadow() {
   );
 }
 
+/** Subtle animated 3D placeholder while the food GLB parses */
+function ModelLoadingPlaceholder() {
+  const group = useRef<THREE.Group>(null);
+  useFrame((state, delta) => {
+    if (group.current) {
+      group.current.rotation.y += delta * 2.2;
+      group.current.position.y = BOARD_TOP_Y + 0.45 + Math.sin(state.clock.elapsedTime * 3) * 0.05;
+    }
+  });
+
+  return (
+    <group ref={group} position={[0, BOARD_TOP_Y + 0.45, 0]}>
+      <mesh>
+        <torusGeometry args={[0.55, 0.035, 16, 40]} />
+        <meshStandardMaterial
+          color="#2ecc71"
+          emissive="#2ecc71"
+          emissiveIntensity={0.6}
+          roughness={0.2}
+          transparent
+          opacity={0.85}
+        />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.22, 24, 24]} />
+        <meshStandardMaterial
+          color="#48bb78"
+          emissive="#38a169"
+          emissiveIntensity={0.75}
+          roughness={0.25}
+          transparent
+          opacity={0.9}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+class CanvasErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error) {
+    console.warn('3D model load error caught by canvas boundary:', error);
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 export default function FoodCanvas({
   children,
   height = 260,
@@ -80,17 +133,22 @@ export default function FoodCanvas({
   return (
     <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: 'none' }}>
       <Canvas camera={{ position: cameraPos, fov: 46 }} dpr={[1, 1.5]}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[3.2, 4.8, 3.5]} intensity={1.35} />
-        <directionalLight position={[-3.5, 1.5, -2]} intensity={0.45} color="#cfe8ff" />
+        {/* Studio multi-light setup: instant, zero network dependencies, 60fps */}
+        <ambientLight intensity={0.68} />
+        <directionalLight position={[3.5, 5.2, 3.8]} intensity={1.38} />
+        <directionalLight position={[-3.8, 1.8, -2.2]} intensity={0.48} color="#cfe8ff" />
+        <directionalLight position={[0, -2, 2.5]} intensity={0.22} color="#fff6e8" />
 
-        <Suspense fallback={null}>
-          <Environment preset="apartment" background={false} environmentIntensity={0.85} />
-        </Suspense>
-        <Suspense fallback={null}>
-          {children}
-          {showPedestal ? <CuttingPedestal /> : <GroundShadow />}
-        </Suspense>
+        {/* Board and table pedestal render immediately without waiting for model */}
+        {showPedestal ? <CuttingPedestal /> : <GroundShadow />}
+
+        {/* Model stream: Suspends independently with a 3D placeholder */}
+        <CanvasErrorBoundary>
+          <Suspense fallback={<ModelLoadingPlaceholder />}>
+            {children}
+          </Suspense>
+        </CanvasErrorBoundary>
+
         <OrbitControls
           enabled={controlsEnabled}
           target={cameraTarget}

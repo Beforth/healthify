@@ -130,24 +130,26 @@ class ModelPreloader {
     // 1. Warm the thumbnail PreviewCache (builds Three.js geometry for the picker cards).
     warmPreviewCache(ids);
 
-    // 2. Also warm drei's useGLTF Suspense cache, page-by-page via idle callbacks.
-    //    When the game screen mounts, useGLTF() reads from cache synchronously
-    //    so the model paints on the very first frame.
-    //    8 foods per idle slot matches the picker page size.
-    const PAGE = 8;
+    // 2. Also warm drei's useGLTF Suspense cache, 1 food per idle slot.
+    //    Trickling 1 model at a time ensures the network is never saturated,
+    //    leaving 100% bandwidth available whenever the user navigates into a game.
     let offset = 0;
     const scheduleNext = () => {
       if (offset >= ids.length) return;
-      const batch = ids.slice(offset, offset + PAGE);
-      offset += PAGE;
       const cb = () => {
-        batch.forEach((id) => preloadForGame(id));
+        // Pause during active gameplay so the current game food has full bandwidth
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/play')) {
+          setTimeout(scheduleNext, 2000);
+          return;
+        }
+        const nextId = ids[offset++];
+        if (nextId) preloadForGame(nextId);
         scheduleNext();
       };
       if ('requestIdleCallback' in window) {
-        (window as Window).requestIdleCallback(cb, { timeout: 5000 });
+        (window as Window).requestIdleCallback(cb, { timeout: 4000 });
       } else {
-        setTimeout(cb, 500);
+        setTimeout(cb, 600);
       }
     };
     scheduleNext();

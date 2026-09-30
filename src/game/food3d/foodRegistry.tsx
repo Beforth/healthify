@@ -344,7 +344,7 @@ export function preloadForGame(id: string): void {
     broccoli:         `${BASE}models/broccoli.glb`,
     peanuts:          `${BASE}models/peanut.glb`,
     'soft-drink':     `${BASE}models/soft-drink.glb`,
-    'potato-chips':   `${BASE}models/poptao-chip.glb`,
+    'potato-chips':   `${BASE}models/potato-chips.glb`,
     corn:             `${BASE}models/sweet corn.glb`,
     milk:             `${BASE}models/milk.glb`,
     'cream-biscuits': `${BASE}models/cream_biscuit.glb`,

@@ -17,7 +17,7 @@ import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
 import DragRotate from '../game/food3d/DragRotate';
 import FlatCutStage from '../components/FlatCutStage';
 import FlatCrossSection from '../game/micro/FlatCrossSection';
-import { FOOD_MODELS, FOOD_CROSS_SECTIONS, NO_CUT_FOODS, foodSizeOf } from '../game/food3d/foodRegistry';
+import { FOOD_MODELS, FOOD_CROSS_SECTIONS, NO_CUT_FOODS, foodSizeOf, preloadForGame } from '../game/food3d/foodRegistry';
 
 const topicMeta: Record<QuizTopic, { label: string; icon: typeof Droplet; color: string }> = {
   fat: { label: 'Fat', icon: Droplet, color: '#4dd6ff' },
@@ -67,6 +67,7 @@ export default function GameScreen() {
     // — never goes through the food picker, so the store never learned which
     // category was played and the healthy/junk alternation quietly stopped
     // applying. Recording it here means every route into a food counts.
+    preloadForGame(food.id);
     selectFood(food.id, food.category);
     setCut(false);
     setZooming(false);
