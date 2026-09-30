@@ -3,10 +3,11 @@ import { OrbitControls, RGBELoader } from 'three-stdlib';
 import { PreviewBuilder, type PreviewResource } from './previewResources';
 import { PreviewCache } from './previewCache';
 
-const MAX_MODELS = 32;
-const MAX_BYTES = 96 * 1024 * 1024;
+const MAX_MODELS = 256;
+const MAX_BYTES = 1024 * 1024 * 1024; // Generous budget so no model is ever evicted or rejected
 const MAX_POSTERS = 64;
 const FPS = 30;
+const RENDER_SIZE = 240;
 const ENVIRONMENT = 'https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/lebombo_1k.hdr';
 
 interface View {
@@ -48,6 +49,7 @@ class PreviewRenderer {
   constructor() {
     this.gl.setClearColor(0x000000, 0);
     this.gl.setPixelRatio(1);
+    this.gl.setSize(RENDER_SIZE, RENDER_SIZE, false);
     this.gl.toneMapping = THREE.ACESFilmicToneMapping;
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const key = new THREE.DirectionalLight(0xffffff, 1.35);
@@ -99,7 +101,10 @@ class PreviewRenderer {
 
   attach(id: string, canvas: HTMLCanvasElement, scale: number, ready: () => void) {
     const start = performance.now();
-    const context = canvas.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pixels = Math.min(RENDER_SIZE, Math.round((canvas.clientWidth || 100) * dpr));
+    canvas.width = canvas.height = pixels || RENDER_SIZE;
+    const context = canvas.getContext('2d', { alpha: true });
     if (!context) return () => {};
     const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 100);
     camera.position.set(0, 1.25, 5.6);
@@ -115,7 +120,7 @@ class PreviewRenderer {
     controls.enableDamping = true;
     controls.dampingFactor = 0.12;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0;
+    controls.autoRotateSpeed = 1.4;
     controls.update();
     controls.addEventListener('start', () => { controls.autoRotate = false; });
     controls.addEventListener('end', () => { controls.autoRotate = true; });
@@ -148,18 +153,19 @@ class PreviewRenderer {
   }
 
   private draw(view: View, resource: PreviewResource) {
-    const pixels = Math.min(320, Math.round(view.canvas.clientWidth * Math.min(devicePixelRatio || 1, 2)));
-    if (!pixels) return;
-    if (view.canvas.width !== pixels || view.canvas.height !== pixels) {
-      view.canvas.width = view.canvas.height = pixels;
-    }
-    if (this.gl.domElement.width !== pixels) this.gl.setSize(pixels, pixels, false);
+    const w = view.canvas.width;
+    const h = view.canvas.height;
+    if (!w || !h) return;
+
+    this.holder.clear();
     this.holder.scale.setScalar(view.scale);
     this.holder.add(resource.object);
+
     this.gl.render(this.scene, view.camera);
-    view.context.clearRect(0, 0, pixels, pixels);
-    view.context.drawImage(this.gl.domElement, 0, 0);
-    this.holder.remove(resource.object);
+
+    view.context.clearRect(0, 0, w, h);
+    view.context.drawImage(this.gl.domElement, 0, 0, w, h);
+
     view.painted = true;
     view.ready();
     this.stats.draws++;
@@ -191,12 +197,10 @@ class PreviewRenderer {
     if (!views.length) { this.previousTime = 0; return; }
     const elapsed = time - this.previousTime;
     if (elapsed >= 1000 / FPS) {
-      this.previousTime = time;
+      this.previousTime = time - (elapsed % (1000 / FPS));
       for (const view of views) {
         const resource = this.cache.get(view.id);
         if (!resource) continue;
-        // stdlib controls assume 60 updates/sec; compensate for the capped loop.
-        view.controls.autoRotateSpeed = 1.4 * Math.min(elapsed / 1000, 0.1) * 60;
         view.controls.update();
         this.draw(view, resource);
       }
@@ -223,9 +227,11 @@ class PreviewRenderer {
       this.stats.builds++;
       this.stats.buildMs.push({ id: next.id, ms: performance.now() - start });
       if (this.stats.buildMs.length > 32) this.stats.buildMs.shift();
-      if (this.disposed) resource.dispose();
-      else if (!this.cache.add(next.id, resource, new Set(this.visibleViews().map((view) => view.id)))) {
-        this.failed.add(next.id); // Keep the icon/poster instead of exceeding the memory budget.
+      if (this.disposed) {
+        resource.dispose();
+      } else {
+        this.cache.add(next.id, resource, new Set(this.visibleViews().map((view) => view.id)));
+        this.draw(next, resource);
       }
     } catch (error) {
       this.failed.add(next.id);

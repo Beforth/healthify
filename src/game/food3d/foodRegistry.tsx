@@ -106,8 +106,10 @@ export const PREVIEW_SCANS: Record<string, Pick<ScannedFoodConfig, 'url' | 'rota
   'sweet-potato': { url: 'models/sweet-potato.glb', rotate: Z_CUT, tilt: [0.05, 0, 0.72] },
   peanuts: { url: 'models/peanut.glb', rotate: Z_CUT, tilt: [0.28, 0.35, 0.7] },
   'soft-drink': { url: 'models/soft-drink.glb', tilt: [0.05, 0.3, 0] },
-  'potato-chips': { url: 'models/poptao-chip.glb', rotate: [Math.PI / 2, 0, 0], tilt: [0.42, 0.2, 0] },
+  'potato-chips': { url: 'models/potato-chips.glb', rotate: [Math.PI / 2, 0, 0], tilt: [0.42, 0.2, 0] },
   corn: { url: 'models/sweet corn.glb', rotate: Z_CUT, tilt: [0.1, 0.4, 0.65] },
+  burger: { url: 'models/burger.glb', tilt: [0.1, 0.3, 0] },
+  milk: { url: 'models/milk.glb', tilt: [0.06, 0.3, 0] },
 };
 
 /** Foods with a hand-built 3D model. Anything absent here is still perfectly

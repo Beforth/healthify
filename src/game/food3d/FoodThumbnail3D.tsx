@@ -28,27 +28,61 @@ export default function FoodThumbnail3D({
     const surface = canvas.current;
     if (!hasModel || !surface) return;
     surface.style.opacity = '0';
-    if (fallback.current) fallback.current.style.visibility = 'visible';
+    if (fallback.current) fallback.current.style.opacity = '1';
     let painted = false;
+    let fadeTimer: number | undefined;
     try {
-      return attachPreview(foodId, surface, scale, () => {
+      const detach = attachPreview(foodId, surface, scale, () => {
         if (painted) return;
         painted = true;
         surface.style.opacity = '1';
-        if (fallback.current) fallback.current.style.visibility = 'hidden';
+        fadeTimer = window.setTimeout(() => {
+          if (fallback.current && painted) {
+            fallback.current.style.opacity = '0';
+          }
+        }, 250);
       });
+      return () => {
+        if (fadeTimer) clearTimeout(fadeTimer);
+        detach();
+      };
     } catch (error) {
       console.warn('3D previews unavailable; showing food illustrations.', error);
     }
   }, [foodId, hasModel, scale, size]);
+
   if (!hasModel) return <FoodIcon id={foodId} size={size} />;
 
   return (
     <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
-      <div ref={fallback}><FoodIcon id={foodId} size={size} /></div>
-      <canvas ref={canvas} width={size} height={size} aria-label={`Rotate ${foodId} preview`}
+      <div
+        ref={fallback}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'opacity 0.25s ease-out',
+        }}
+      >
+        <FoodIcon id={foodId} size={size} />
+      </div>
+      <canvas
+        ref={canvas}
+        width={size}
+        height={size}
+        aria-label={`Rotate ${foodId} preview`}
         data-food-preview={foodId}
-        style={{ position: 'absolute', inset: 0, width: size, height: size, opacity: 0, touchAction: 'none' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: size,
+          height: size,
+          opacity: 0,
+          transition: 'opacity 0.3s ease-out',
+          touchAction: 'none',
+        }}
         onPointerDown={(event) => {
           drag.current = { x: event.clientX, y: event.clientY, moved: false };
         }}
@@ -57,7 +91,9 @@ export default function FoodThumbnail3D({
             drag.current.moved = true;
           }
         }}
-        onClick={(event) => { if (drag.current.moved) event.stopPropagation(); }}
+        onClick={(event) => {
+          if (drag.current.moved) event.stopPropagation();
+        }}
       />
     </div>
   );

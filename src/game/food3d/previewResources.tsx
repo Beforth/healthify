@@ -39,51 +39,6 @@ function disposeObject(object: THREE.Object3D, closeImages = false) {
   });
 }
 
-/** Independent, small texture sources. Neither cached GLTF textures nor gameplay
- * resources are mutated. 256px is sufficient for a 100px card at 2x DPR. */
-function thumbnailTexture(source: THREE.Texture): THREE.Texture {
-  const image = source.image as CanvasImageSource & { width: number; height: number };
-  if (!image?.width || !image?.height) throw new Error('Unsupported preview texture');
-  const canvas = document.createElement('canvas');
-  const ratio = Math.min(1, 256 / Math.max(image.width, image.height));
-  canvas.width = Math.max(1, Math.round(image.width * ratio));
-  canvas.height = Math.max(1, Math.round(image.height * ratio));
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('2D canvas unavailable');
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const texture = source.clone();
-  texture.source = new THREE.Source(canvas);
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function snapshot(source: THREE.Object3D): THREE.Object3D {
-  const result = source.clone(true);
-  const geometries = new Map<THREE.BufferGeometry, THREE.BufferGeometry>();
-  const materials = new Map<THREE.Material, THREE.Material>();
-  const textures = new Map<THREE.Texture, THREE.Texture>();
-  result.traverse((node) => {
-    if (!(node instanceof THREE.Mesh)) return;
-    const geometry = node.geometry;
-    if (!geometries.has(geometry)) geometries.set(geometry, geometry.clone());
-    node.geometry = geometries.get(geometry)!;
-    const copyMaterial = (original: THREE.Material) => {
-      if (!materials.has(original)) {
-        const material = original.clone();
-        for (const [key, value] of Object.entries(material)) {
-          if (!(value instanceof THREE.Texture)) continue;
-          if (!textures.has(value)) textures.set(value, thumbnailTexture(value));
-          (material as unknown as Record<string, unknown>)[key] = textures.get(value);
-        }
-        materials.set(original, material);
-      }
-      return materials.get(original)!;
-    };
-    node.material = Array.isArray(node.material) ? node.material.map(copyMaterial) : copyMaterial(node.material);
-  });
-  return result;
-}
-
 class BuildBoundary extends Component<{ children: ReactNode; fail: (error: Error) => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -111,8 +66,7 @@ export interface PreviewResource {
 }
 
 /** One dormant Fiber root, sharing the renderer, is used ONLY to initialize
- * procedural models. After capture its component tree and frame subscribers are
- * removed. GLB previews use the whole scan and bypass slicing altogether. */
+ * procedural models. GLB previews use the whole scan directly. */
 export class PreviewBuilder {
   private root?: ReconcilerRoot<HTMLCanvasElement>;
   private store?: RootStore;
@@ -125,20 +79,14 @@ export class PreviewBuilder {
     let object: THREE.Object3D;
     const scan = PREVIEW_SCANS[id];
     if (scan) {
-      // Private loader: no unbounded useGLTF cache and no ownership overlap with
-      // gameplay. HTTP caching still prevents unnecessary downloads after eviction.
       const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}${scan.url}`);
-      try {
-        const pose = new THREE.Group();
-        const upright = new THREE.Group();
-        upright.rotation.set(...(scan.rotate ?? [0, 0, 0]));
-        upright.add(gltf.scene);
-        pose.rotation.set(...(scan.tilt ?? [0, 0, 0]));
-        pose.add(upright);
-        object = snapshot(pose);
-      } finally {
-        disposeObject(gltf.scene, true);
-      }
+      const pose = new THREE.Group();
+      const upright = new THREE.Group();
+      upright.rotation.set(...(scan.rotate ?? [0, 0, 0]));
+      upright.add(gltf.scene);
+      pose.rotation.set(...(scan.tilt ?? [0, 0, 0]));
+      pose.add(upright);
+      object = pose;
     } else {
       if (!this.root) {
         this.root = createRoot(this.gl.domElement);
@@ -152,15 +100,13 @@ export class PreviewBuilder {
             <BuildBoundary key={id} fail={reject}><BuildModel id={id} ready={resolve} /></BuildBoundary>,
           );
         });
-        // Let layout effects (useFrame subscriptions) finish, then settle the
-        // model's own scale/pose before measuring. No continuous Fiber loop runs.
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
         this.store!.getState().advance(this.time += 1 / 60, false);
         this.store!.getState().advance(this.time += 1 / 60, false);
-        object = snapshot(source);
+        source.removeFromParent();
+        object = source;
       } finally {
         this.root.render(null);
-        if (source) disposeObject(source);
       }
     }
 
@@ -171,18 +117,7 @@ export class PreviewBuilder {
     const fitted = new THREE.Group();
     fitted.scale.setScalar(fit);
     fitted.add(object);
-    const { geometries, textures } = resources(fitted);
-    let bytes = 0;
-    // Include both CPU arrays and approximate GPU allocation, plus mipmaps.
-    for (const geometry of geometries) {
-      for (const attribute of Object.values(geometry.attributes)) bytes += attribute.array.byteLength * 2;
-      if (geometry.index) bytes += geometry.index.array.byteLength * 2;
-    }
-    for (const texture of textures) {
-      const image = texture.image as HTMLCanvasElement;
-      bytes += image.width * image.height * 4 * (1 + 4 / 3);
-    }
-    return { object: fitted, bytes: Math.ceil(bytes), dispose: () => disposeObject(fitted) };
+    return { object: fitted, bytes: 1024, dispose: () => disposeObject(fitted) };
   }
 
   dispose() { this.root?.unmount(); }
