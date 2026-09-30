@@ -27,8 +27,6 @@ const TAB_COLOUR = '#dfe5e6';
 const OPEN_DELAY = 0.7;
 const OPEN_TIME = 0.5;
 
-useGLTF.preload(MODEL_URL);
-
 /**
  * The lid, in two real pieces: the disc it is pressed into, and the tab that
  * pivots up off it on its rivet.

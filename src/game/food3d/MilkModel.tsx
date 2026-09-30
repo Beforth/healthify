@@ -9,8 +9,6 @@ const MODEL_URL = `${import.meta.env.BASE_URL}models/milk.glb`;
  *  upright and already full. */
 const SCALE = 1.7;
 
-useGLTF.preload(MODEL_URL);
-
 /** The scan as one piece. A glass of milk is not a food you cut open — the whole
  *  point of looking at it is what is *in* it, not what is inside it — so nothing
  *  here is ever split, and there is no invented interior to get wrong. The

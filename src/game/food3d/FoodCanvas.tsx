@@ -86,6 +86,8 @@ export default function FoodCanvas({
 
         <Suspense fallback={null}>
           <Environment preset="apartment" background={false} environmentIntensity={0.85} />
+        </Suspense>
+        <Suspense fallback={null}>
           {children}
           {showPedestal ? <CuttingPedestal /> : <GroundShadow />}
         </Suspense>

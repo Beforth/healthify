@@ -44,8 +44,6 @@ const FLESH_LOOK: FleshLook = {
  *  screen drops its markers onto this table, and the generated map is clipped to
  *  the same seams, so the markers cannot drift off the bands they name. */
 
-useGLTF.preload(MODEL_URL);
-
 /**
  * The flat face left behind by the cut.
  *

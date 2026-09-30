@@ -17,8 +17,6 @@ const SCALE = 1.6;
 const CRISP_EDGE = '#d9a94f';
 const CRISP_INNER = '#f2d28f';
 
-useGLTF.preload(MODEL_URL);
-
 function cutCap(outline: { y: number; z: number }[], inset: number): THREE.BufferGeometry | null {
   if (outline.length < 3) return null;
 

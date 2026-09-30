@@ -21,8 +21,6 @@ const CRUMB_EDGE = '#b8783f';
 const CREAM = '#fff3d6';
 const CREAM_SHADE = '#f1dcae';
 
-useGLTF.preload(MODEL_URL);
-
 /**
  * The flat face left behind by the cut.
  *

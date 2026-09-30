@@ -37,8 +37,6 @@ const FLESH_LOOK: FleshLook = {
   ior: 1.4,
 };
 
-useGLTF.preload(MODEL_URL);
-
 function CutFace({ half, faceSign }: { half: SlicedHalf; faceSign: number }) {
   // one cap, one texture, the whole interior in it
   const cut = useMemo(() => {

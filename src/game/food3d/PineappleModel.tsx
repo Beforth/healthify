@@ -19,8 +19,6 @@ const SCALE = 2.4;
  *  wet gold right next to it, which is the whole contrast of a cut pineapple. */
 const RIND = '#8a5f18';
 
-useGLTF.preload(MODEL_URL);
-
 /** How big the flesh is generated at. Sharp enough to hold the cell structure
  *  when the face is seen at an angle, small enough that generating it is a
  *  one-off cost rather than a pause. */

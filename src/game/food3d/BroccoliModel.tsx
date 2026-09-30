@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -21,8 +21,6 @@ const FLORET_DEEP = '#22521f';
 const STALK = '#cfe6a6';
 const STALK_CORE = '#e8f3cf';
 const STALK_SKIN = '#8dbf5e';
-
-useGLTF.preload(MODEL_URL);
 
 /**
  * What the inside of a halved broccoli looks like, painted once into a texture:

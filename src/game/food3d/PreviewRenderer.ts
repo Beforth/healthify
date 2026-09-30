@@ -6,7 +6,6 @@ import { PreviewCache } from './previewCache';
 const MAX_MODELS = 256;
 const MAX_BYTES = 1024 * 1024 * 1024; // Generous budget so no model is ever evicted or rejected
 const MAX_POSTERS = 64;
-const FPS = 30;
 const RENDER_SIZE = 240;
 const ENVIRONMENT = 'https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/lebombo_1k.hdr';
 
@@ -20,13 +19,14 @@ interface View {
   visible: boolean;
   ready: () => void;
   painted: boolean;
+  needsRender: boolean;
 }
 
 /** One small, persistent WebGL renderer feeds ordinary 2D canvas presentation
  * surfaces. This keeps CSS clipping, card opacity, overlays and scrolling correct
  * without a full-window WebGL overlay. Models/textures stay on the SAME GPU
- * context across pagination and routes; only visible surfaces are drawn at 30fps.
- * No readPixels, data URLs, hidden per-card WebGL contexts or hidden model loops. */
+ * context across pagination and routes; only dirty/visible surfaces are drawn
+ * on demand. Idle CPU and GPU usage drop to zero. */
 class PreviewRenderer {
   private gl = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   private builder = new PreviewBuilder(this.gl);
@@ -37,7 +37,6 @@ class PreviewRenderer {
   private holder = new THREE.Group();
   private observer: IntersectionObserver;
   private frame = 0;
-  private previousTime = 0;
   private building = false;
   private lost = false;
   private disposed = false;
@@ -63,10 +62,24 @@ class PreviewRenderer {
     shadow.rotation.x = -Math.PI / 2;
     this.scene.add(shadow);
     this.observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) for (const view of this.views) {
-        if (view.canvas === entry.target) view.visible = entry.isIntersecting;
+      let newlyVisible = false;
+      for (const entry of entries) {
+        for (const view of this.views) {
+          if (view.canvas === entry.target) {
+            const wasVisible = view.visible;
+            view.visible = entry.isIntersecting;
+            if (!wasVisible && view.visible && !view.painted) {
+              view.needsRender = true;
+              newlyVisible = true;
+            }
+          }
+        }
       }
-      this.wake();
+      if (newlyVisible || this.visibleViews().some((v) => v.needsRender)) {
+        this.wake();
+      } else if (!this.visibleViews().length) {
+        this.stop();
+      }
     });
     document.addEventListener('visibilitychange', this.visibilityChanged);
     window.addEventListener('pagehide', this.pageHidden);
@@ -78,6 +91,7 @@ class PreviewRenderer {
     });
     this.gl.domElement.addEventListener('webglcontextrestored', () => {
       this.lost = false;
+      for (const view of this.views) view.needsRender = true;
       this.wake();
     });
     // Same environment as FoodCanvas, once per renderer; lighting still works
@@ -90,13 +104,21 @@ class PreviewRenderer {
       this.scene.environmentIntensity = 0.85;
       hdr.dispose();
       generator.dispose();
+      for (const view of this.views) view.needsRender = true;
       this.wake();
     }).catch(() => { /* Direct lighting is the offline fallback. */ });
   }
 
-  private visibilityChanged = () => { if (document.hidden) this.stop(); else this.wake(); };
+  private visibilityChanged = () => {
+    if (document.hidden) {
+      this.stop();
+    } else {
+      for (const view of this.views) view.needsRender = true;
+      this.wake();
+    }
+  };
   private pageHidden = (event: PageTransitionEvent) => { if (!event.persisted) this.dispose(); };
-  private stop() { cancelAnimationFrame(this.frame); this.frame = 0; this.previousTime = 0; }
+  private stop() { cancelAnimationFrame(this.frame); this.frame = 0; }
   private visibleViews() { return [...this.views].filter((view) => view.visible && view.canvas.isConnected); }
 
   attach(id: string, canvas: HTMLCanvasElement, scale: number, ready: () => void) {
@@ -119,14 +141,34 @@ class PreviewRenderer {
     controls.maxPolarAngle = Math.PI / 1.6;
     controls.enableDamping = true;
     controls.dampingFactor = 0.12;
-    controls.autoRotate = true;
+    // Keep autoRotate off on the grid so 8 cards don't spam 240 WebGL renders and
+    // 240 drawImage copies per second. Renders on-demand when loaded or dragged.
+    controls.autoRotate = false;
     controls.autoRotateSpeed = 1.4;
     controls.update();
-    controls.addEventListener('start', () => { controls.autoRotate = false; });
-    controls.addEventListener('end', () => { controls.autoRotate = true; });
+
     const rect = canvas.getBoundingClientRect();
-    const view: View = { id, canvas, context, camera, controls, scale, ready, painted: false,
-      visible: rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth };
+    const view: View = {
+      id,
+      canvas,
+      context,
+      camera,
+      controls,
+      scale,
+      ready,
+      painted: false,
+      needsRender: true,
+      visible: rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth,
+    };
+
+    controls.addEventListener('start', () => {
+      this.wake();
+    });
+    controls.addEventListener('change', () => {
+      view.needsRender = true;
+      this.wake();
+    });
+
     this.views.add(view);
     this.observer.observe(canvas);
     if (poster) {
@@ -138,7 +180,10 @@ class PreviewRenderer {
       this.stats.cacheHits++;
       // Returning cards paint during their layout effect, before the browser
       // presents them. They never wait for loading, React mounting, or a fade-in.
-      if (!this.lost && view.visible && !document.hidden) this.draw(view, resource);
+      if (!this.lost && view.visible && !document.hidden) {
+        this.draw(view, resource);
+        view.needsRender = false;
+      }
     }
     this.stats.attachMs.push(performance.now() - start);
     if (this.stats.attachMs.length > 32) this.stats.attachMs.shift();
@@ -190,24 +235,45 @@ class PreviewRenderer {
     if (!this.building) void this.buildNext();
   }
 
-  private tick = (time: number) => {
+  private tick = () => {
     this.frame = 0;
     if (this.disposed || this.lost || document.hidden) return;
     const views = this.visibleViews();
-    if (!views.length) { this.previousTime = 0; return; }
-    const elapsed = time - this.previousTime;
-    if (elapsed >= 1000 / FPS) {
-      this.previousTime = time - (elapsed % (1000 / FPS));
-      for (const view of views) {
-        const resource = this.cache.get(view.id);
-        if (!resource) continue;
-        view.controls.update();
-        this.draw(view, resource);
+    if (!views.length) return;
+
+    let anyMoving = false;
+    for (const view of views) {
+      const resource = this.cache.get(view.id);
+      if (!resource) continue;
+
+      const prevX = view.camera.position.x;
+      const prevY = view.camera.position.y;
+      const prevZ = view.camera.position.z;
+
+      view.controls.update();
+
+      const dx = view.camera.position.x - prevX;
+      const dy = view.camera.position.y - prevY;
+      const dz = view.camera.position.z - prevZ;
+      const moved = dx * dx + dy * dy + dz * dz > 0.000001;
+
+      if (moved) {
+        view.needsRender = true;
+        anyMoving = true;
       }
-      this.stats.frames++;
+
+      if (view.needsRender) {
+        this.draw(view, resource);
+        view.needsRender = false;
+      }
     }
-    // Pending downloads wake us when ready. All-fallback pages need no RAF loop.
-    if (views.some((view) => this.cache.has(view.id))) this.frame = requestAnimationFrame(this.tick);
+    this.stats.frames++;
+
+    // Only keep RAF alive if a control is actively moving/damping or a cached view needs render.
+    // When idle, the loop completely halts (0% CPU/GPU).
+    if (anyMoving || views.some((view) => view.needsRender && this.cache.has(view.id))) {
+      this.frame = requestAnimationFrame(this.tick);
+    }
   };
 
   private async buildNext() {
@@ -232,6 +298,7 @@ class PreviewRenderer {
       } else {
         this.cache.add(next.id, resource, new Set(this.visibleViews().map((view) => view.id)));
         this.draw(next, resource);
+        next.needsRender = false;
       }
     } catch (error) {
       this.failed.add(next.id);

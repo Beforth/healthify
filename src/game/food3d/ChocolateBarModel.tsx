@@ -16,8 +16,6 @@ const SCALE = 1.95;
  *  the moulded outside is glossy, so it sits a shade lighter than the surface. */
 const SNAP = '#63291a';
 
-useGLTF.preload(MODEL_URL);
-
 /**
  * The flat face left behind by the snap.
  *

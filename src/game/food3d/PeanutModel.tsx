@@ -18,8 +18,6 @@ const KERNEL = '#e6cb92';
 const KERNEL_HEART = '#f0dfa9';
 const SEAM = '#c09a62';
 
-useGLTF.preload(MODEL_URL);
-
 function cutCap(outline: { y: number; z: number }[], inset: number): THREE.BufferGeometry | null {
   if (outline.length < 3) return null;
 
