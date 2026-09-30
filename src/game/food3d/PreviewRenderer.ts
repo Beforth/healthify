@@ -44,6 +44,9 @@ class PreviewRenderer {
   private environment?: THREE.WebGLRenderTarget;
   private stats = { contextCreations: 1, contextLosses: 0, builds: 0, cacheHits: 0,
     draws: 0, frames: 0, failures: 0, buildMs: [] as { id: string; ms: number }[], attachMs: [] as number[] };
+  /** Ordered list of food IDs to build into cache ahead of time during browser idle periods. */
+  private warmupQueue: string[] = [];
+  private warmupBuilding = false;
 
   constructor() {
     this.gl.setClearColor(0x000000, 0);
@@ -235,6 +238,83 @@ class PreviewRenderer {
     if (!this.building) void this.buildNext();
   }
 
+  /** Pre-build model resources for a prioritized list of food IDs during idle time.
+   *  Visible cards are always built first and always preempt warmup. Call with each
+   *  page's food IDs right after the kitchen preloader finishes, ordered page-by-page. */
+  warmCache(ids: string[]) {
+    // Deduplicate; skip already-cached and permanently-failed models.
+    for (const id of ids) {
+      if (!this.cache.has(id) && !this.failed.has(id) && !this.warmupQueue.includes(id)) {
+        this.warmupQueue.push(id);
+      }
+    }
+    this.scheduleWarmup();
+  }
+
+  private scheduleWarmup() {
+    if (this.warmupBuilding || this.warmupQueue.length === 0 || this.disposed) return;
+    const run = (deadline?: IdleDeadline) => {
+      // Skip this idle slot if we're already loading something visible.
+      if (this.building || this.disposed) {
+        if ('requestIdleCallback' in window) {
+          (window as Window).requestIdleCallback(run, { timeout: 2000 });
+        } else {
+          setTimeout(() => this.scheduleWarmup(), 500);
+        }
+        return;
+      }
+      // Stop if the deadline is too tight (< 20ms remaining).
+      if (deadline && deadline.timeRemaining() < 20 && !deadline.didTimeout) {
+        if ('requestIdleCallback' in window) {
+          (window as Window).requestIdleCallback(run, { timeout: 2000 });
+        }
+        return;
+      }
+      void this.buildWarmupNext();
+    };
+    if ('requestIdleCallback' in window) {
+      (window as Window).requestIdleCallback(run, { timeout: 2000 });
+    } else {
+      setTimeout(() => this.scheduleWarmup(), 300);
+    }
+  }
+
+  private async buildWarmupNext() {
+    // Skip any IDs that got built by the normal visible-card path in the meantime.
+    while (this.warmupQueue.length > 0) {
+      const id = this.warmupQueue[0];
+      if (!this.cache.has(id) && !this.failed.has(id)) break;
+      this.warmupQueue.shift();
+    }
+    if (this.warmupQueue.length === 0 || this.disposed || this.building) return;
+    const id = this.warmupQueue.shift()!;
+    this.warmupBuilding = true;
+    try {
+      const resource = await this.builder.build(id);
+      if (this.disposed) {
+        resource.dispose();
+      } else {
+        // Pin currently visible views so LRU doesn't evict them during warmup.
+        this.cache.add(id, resource, new Set(this.visibleViews().map((v) => v.id)));
+      }
+    } catch {
+      this.failed.add(id);
+    } finally {
+      this.warmupBuilding = false;
+      // Paint any attached view that just got a cache hit.
+      for (const view of this.visibleViews()) {
+        if (view.id === id && !view.painted) {
+          const res = this.cache.get(id);
+          if (res && !this.lost && !document.hidden) {
+            this.draw(view, res);
+            view.needsRender = false;
+          }
+        }
+      }
+      if (this.warmupQueue.length > 0) this.scheduleWarmup();
+    }
+  }
+
   private tick = () => {
     this.frame = 0;
     if (this.disposed || this.lost || document.hidden) return;
@@ -346,6 +426,14 @@ let renderer: PreviewRenderer | undefined;
 export function attachPreview(id: string, canvas: HTMLCanvasElement, scale: number, ready: () => void) {
   renderer ??= new PreviewRenderer(); // Never initialized by landing, tutorial, or module import.
   return renderer.attach(id, canvas, scale, ready);
+}
+
+/** Queue food IDs to be built into the preview cache during browser idle time,
+ *  page-by-page so page 1 is always ready first. Safe to call before any canvas
+ *  has ever been attached — the renderer is created lazily on first real use. */
+export function warmPreviewCache(ids: string[]) {
+  renderer ??= new PreviewRenderer();
+  renderer.warmCache(ids);
 }
 
 // Opt-in production diagnostics; no counters or geometry references enter React state.

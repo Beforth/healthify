@@ -1,4 +1,7 @@
 import { useGLTF } from '@react-three/drei';
+import { FOODS } from '../data/nutritionData';
+import { FOOD_MODELS, PREVIEW_SCANS } from '../game/food3d/foodRegistry';
+import { warmPreviewCache } from '../game/food3d/PreviewRenderer';
 
 export interface PreloadProgress {
   loaded: number;
@@ -15,6 +18,13 @@ export const PRIORITY_MODELS = [
   { id: 'sweet-potato', name: 'Sweet Potato', url: 'models/sweet-potato.glb', emoji: '🍠', action: 'Roasting sweet potato...' },
   { id: 'burger', name: 'Burger', url: 'models/burger.glb', emoji: '🍔', action: 'Grilling 3D burger...' },
 ];
+
+/** Food IDs from FOODS[], in page order, that have a 3D preview (model or scan). */
+function foodIdsWithPreviews(): string[] {
+  return FOODS
+    .map((f) => f.id)
+    .filter((id) => Boolean(FOOD_MODELS[id] ?? PREVIEW_SCANS[id]));
+}
 
 class ModelPreloader {
   private ready = false;
@@ -112,11 +122,15 @@ class ModelPreloader {
   }
 
   startBackgroundPreloading(): void {
-    // Models are loaded on-demand by PreviewRenderer (food picker) and
-    // FoodCanvas (play screen). Disabling background GLTF parsing keeps the
-    // main thread and network free for 60fps scrolling and instant taps.
     if (this.backgroundStarted) return;
     this.backgroundStarted = true;
+
+    // Queue every food that has a 3D preview, in FOODS[] page order (page 1 first).
+    // PreviewRenderer builds them into cache one-at-a-time during requestIdleCallback
+    // slots — zero main-thread blocking, invisible to the user, preempted immediately
+    // if any real food card needs building.
+    const ids = foodIdsWithPreviews();
+    warmPreviewCache(ids);
   }
 }
 
