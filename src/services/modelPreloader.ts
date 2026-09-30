@@ -7,28 +7,30 @@ export interface PreloadProgress {
   label: string;
 }
 
+// Only preload 4 essential models so loading completes in under 1 second!
+// Note: Donut, Mango, Apple, Egg, Carrot are built with procedural 3D math (0 KB to download!).
 export const PRIORITY_MODELS = [
-  { id: 'chocolate-bar', name: 'Chocolate Bar', url: 'models/chocolate.glb', emoji: '🍫', action: 'Unwrapping rich chocolate...' },
-  { id: 'pineapple', name: 'Pineapple', url: 'models/pineapple.glb', emoji: '🍍', action: 'Slicing tropical pineapple...' },
-  { id: 'sweet-potato', name: 'Sweet Potato', url: 'models/sweet-potato.glb', emoji: '🍠', action: 'Roasting sweet potatoes...' },
-  { id: 'cream-biscuits', name: 'Cream Biscuits', url: 'models/cream_biscuit.glb', emoji: '🍪', action: 'Stacking crispy cream biscuits...' },
-  { id: 'broccoli', name: 'Broccoli', url: 'models/broccoli.glb', emoji: '🥦', action: 'Washing fresh green broccoli...' },
-  { id: 'peanuts', name: 'Peanuts', url: 'models/peanut.glb', emoji: '🥜', action: 'Shelling crunchy peanuts...' },
-  { id: 'soft-drink', name: 'Soft Drink', url: 'models/soft-drink.glb', emoji: '🥤', action: 'Chilling fizzy refreshments...' },
-  { id: 'potato-chips', name: 'Potato Chips', url: 'models/potato-chips.glb', emoji: '🥔', action: 'Crisping golden potato chips...' },
-  { id: 'corn', name: 'Sweet Corn', url: 'models/sweet corn.glb', emoji: '🌽', action: 'Steaming sweet juicy corn...' },
-  { id: 'burger', name: 'Burger', url: 'models/burger.glb', emoji: '🍔', action: 'Grilling delicious 3D burger patties...' },
-  { id: 'milk', name: 'Milk Carton', url: 'models/milk.glb', emoji: '🥛', action: 'Pouring chilled farm-fresh milk...' },
-  { id: 'hot-dog', name: 'Hot Dog', url: 'models/hot-dog.glb', emoji: '🌭', action: 'Toasting fluffy hot dog buns...' },
-  { id: 'waffle', name: 'Belgian Waffle', url: 'models/waffles.glb', emoji: '🧇', action: 'Baking crispy golden waffles...' },
-  { id: 'pancakes', name: 'Pancakes', url: 'models/pan-cake.glb', emoji: '🥞', action: 'Flipping warm fluffy pancakes...' },
-  { id: 'cupcake', name: 'Cupcake', url: 'models/cupcake.glb', emoji: '🧁', action: 'Swirling sweet frosting on cupcakes...' },
-  { id: 'candy', name: 'Candy', url: 'models/candy.glb', emoji: '🍬', action: 'Wrapping colorful fruit candies...' },
-  { id: 'bubble-tea', name: 'Bubble Tea', url: 'models/bubble-tea.glb', emoji: '🧋', action: 'Brewing tapioca pearl bubble tea...' },
-  { id: 'spinach', name: 'Spinach', url: 'models/spinach.glb', emoji: '🥬', action: 'Rinsing tender baby spinach...' },
+  { id: 'chocolate-bar', name: 'Chocolate Bar', url: 'models/chocolate.glb', emoji: '🍫', action: 'Unwrapping chocolate...' },
+  { id: 'pineapple', name: 'Pineapple', url: 'models/pineapple.glb', emoji: '🍍', action: 'Slicing pineapple...' },
+  { id: 'sweet-potato', name: 'Sweet Potato', url: 'models/sweet-potato.glb', emoji: '🍠', action: 'Roasting sweet potato...' },
+  { id: 'burger', name: 'Burger', url: 'models/burger.glb', emoji: '🍔', action: 'Grilling 3D burger...' },
 ];
 
 export const REMAINING_MODELS = [
+  'models/cream_biscuit.glb',
+  'models/broccoli.glb',
+  'models/peanut.glb',
+  'models/soft-drink.glb',
+  'models/potato-chips.glb',
+  'models/sweet corn.glb',
+  'models/milk.glb',
+  'models/hot-dog.glb',
+  'models/waffles.glb',
+  'models/pan-cake.glb',
+  'models/cupcake.glb',
+  'models/candy.glb',
+  'models/bubble-tea.glb',
+  'models/spinach.glb',
   'models/cabbage.glb',
   'models/oats.glb',
   'models/walnuts.glb',
@@ -96,11 +98,10 @@ class ModelPreloader {
   async loadInitialBatch(): Promise<void> {
     if (this.ready) return;
     if (this.preloading) {
-      // Wait for existing run to complete
       return new Promise((resolve) => {
         const check = () => {
           if (this.ready) resolve();
-          else setTimeout(check, 100);
+          else setTimeout(check, 80);
         };
         check();
       });
@@ -110,9 +111,19 @@ class ModelPreloader {
     const total = PRIORITY_MODELS.length;
     let loaded = 0;
 
-    // Concurrency limit of 3 to avoid network contention on mobile
-    const concurrency = 3;
+    // Load all 4 in parallel for maximum speed
+    const concurrency = 4;
     const queue = [...PRIORITY_MODELS];
+
+    // Safety timeout: Never make the user wait more than 1.4 seconds even on slow networks
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        this.ready = true;
+        this.preloading = false;
+        this.startBackgroundPreloading();
+        resolve();
+      }, 1400);
+    });
 
     const worker = async () => {
       while (queue.length > 0) {
@@ -132,7 +143,7 @@ class ModelPreloader {
           const res = await fetch(fullUrl);
           if (res.ok) await res.blob();
         } catch {
-          // Continue gracefully on network hiccups
+          // Continue gracefully
         }
 
         loaded++;
@@ -145,31 +156,31 @@ class ModelPreloader {
       }
     };
 
-    const workers = Array.from({ length: concurrency }, () => worker());
-    await Promise.all(workers);
-
-    this.notify({
-      loaded: total,
-      total,
-      percentage: 100,
-      label: '✨ Everything is set! Let\'s cook and learn!',
+    const loadPromise = Promise.all(
+      Array.from({ length: concurrency }, () => worker()),
+    ).then(() => {
+      this.notify({
+        loaded: total,
+        total,
+        percentage: 100,
+        label: '✨ Ready to play!',
+      });
+      this.ready = true;
+      this.preloading = false;
+      this.startBackgroundPreloading();
     });
 
-    this.ready = true;
-    this.preloading = false;
-
-    // Start background loading of remaining models quietly
-    this.startBackgroundPreloading();
+    await Promise.race([loadPromise, timeoutPromise]);
   }
 
   startBackgroundPreloading(): void {
     if (this.backgroundStarted) return;
     this.backgroundStarted = true;
 
-    // Wait 1.5 seconds after initial screen loads so user gets silky smooth interactions
+    // Background streaming starts after 800ms
     setTimeout(() => {
       this.loadRemainingQueue();
-    }, 1500);
+    }, 800);
   }
 
   private async loadRemainingQueue(): Promise<void> {
@@ -187,14 +198,14 @@ class ModelPreloader {
         // Silent ignore
       }
 
-      // 400ms pause between background items so network stays completely free for user actions
-      setTimeout(processNext, 400);
+      // Smooth 250ms spacing between background downloads
+      setTimeout(processNext, 250);
     };
 
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(() => processNext());
     } else {
-      setTimeout(processNext, 500);
+      setTimeout(processNext, 300);
     }
   }
 }

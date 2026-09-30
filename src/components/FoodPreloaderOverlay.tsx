@@ -22,7 +22,7 @@ const FLOATING_ICONS = [
 export default function FoodPreloaderOverlay({ isOpen, onComplete }: FoodPreloaderOverlayProps) {
   const [progress, setProgress] = useState<PreloadProgress>({
     loaded: 0,
-    total: 18,
+    total: 4,
     percentage: 0,
     label: '🧺 Gathering fresh ingredients from the pantry...',
   });
@@ -30,21 +30,26 @@ export default function FoodPreloaderOverlay({ isOpen, onComplete }: FoodPreload
   useEffect(() => {
     if (!isOpen) return;
 
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      setTimeout(() => {
+        onComplete();
+      }, 180);
+    };
+
     // Listen to progress updates
     const unsubscribe = modelPreloader.onProgress((p) => {
       setProgress(p);
       if (p.percentage >= 100) {
-        setTimeout(() => {
-          onComplete();
-        }, 400);
+        finish();
       }
     });
 
-    // Start loading the initial batch
+    // Start loading the initial batch (completes in <1s or 1.4s max timeout)
     modelPreloader.loadInitialBatch().then(() => {
-      setTimeout(() => {
-        onComplete();
-      }, 350);
+      finish();
     });
 
     return () => unsubscribe();
