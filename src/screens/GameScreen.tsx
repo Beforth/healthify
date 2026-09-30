@@ -461,14 +461,18 @@ export default function GameScreen() {
                 style={{
                   position: 'relative',
                   width: '100%',
-                  height: 'clamp(340px, 56vh, 660px)',
-                  marginTop: -42,
-                  marginBottom: -32,
+                  flex: 1,
+                  minHeight: 'clamp(360px, 54vh, 600px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: -16,
+                  marginBottom: 4,
                 }}
               >
                 {FoodModel ? (
                   <FoodCanvas
-                    height="clamp(340px, 56vh, 660px)"
+                    height="clamp(360px, 54vh, 600px)"
                     width="100%"
                     showPedestal
                     autoRotate={false}
@@ -501,7 +505,7 @@ export default function GameScreen() {
                 ) : (
                   <div
                     style={{
-                      height: 'clamp(340px, 56vh, 660px)',
+                      height: 'clamp(360px, 54vh, 600px)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

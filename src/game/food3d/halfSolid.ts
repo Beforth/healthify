@@ -59,6 +59,7 @@ export function buildHalfSolid(
     skinGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   }
   skinGeo.computeVertexNormals();
+  skinGeo.computeBoundingBox();
 
   const outline = orderRing(seam);
   return { skinGeo, cutGeo: fanFace(outline), outline };
@@ -111,5 +112,6 @@ function fanFace(outline: THREE.Vector2[]): THREE.BufferGeometry {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geo.computeVertexNormals();
+  geo.computeBoundingBox();
   return geo;
 }

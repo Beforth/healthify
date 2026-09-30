@@ -8,7 +8,6 @@ import * as THREE from 'three';
  *  and tips panels only cover the upper corners). */
 const LIMIT_X = 0.92;
 const LIMIT_TOP = 0.94;
-const LIMIT_BOTTOM = 0.82;
 
 /** The 26 directions of a cube's faces, edges and corners. */
 const DIRECTIONS: THREE.Vector3[] = [];
@@ -112,7 +111,7 @@ export default function KeepInView({ children }: { children: ReactNode }) {
         if (point.z > 1) continue; // behind the camera
         const r = Math.max(
           Math.abs(point.x) / LIMIT_X,
-          point.y > 0 ? point.y / LIMIT_TOP : -point.y / LIMIT_BOTTOM,
+          point.y > 0 ? point.y / LIMIT_TOP : 0,
         );
         if (r > reach) {
           reach = r;

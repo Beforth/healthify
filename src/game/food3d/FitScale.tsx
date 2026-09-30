@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import KeepInView from './KeepInView';
 
@@ -8,25 +9,10 @@ import KeepInView from './KeepInView';
  *  can be sized however it wants without a shared reference. */
 export const DEFAULT_TARGET = 3.1;
 
-function measureMax(node: THREE.Object3D): number | null {
-  node.updateWorldMatrix(true, true);
-  const box = new THREE.Box3().setFromObject(node);
-  if (box.isEmpty()) return null;
-  const size = box.getSize(new THREE.Vector3());
-  const max = Math.max(size.x, size.y, size.z);
-  return max > 1e-6 ? max : null;
-}
-
-/** The lowest point of this subtree, in *this group's* own coordinates.
- *
- *  `measureMax` measures in world space, which only matches local space while
- *  the group and all of its parents are untransformed — and the cut stage's
- *  `DragRotate` rotates the moment the user drags. The seat offset has to survive
- *  that, so the box is rebuilt from the children's own bounding boxes pulled
- *  back through the inverse of this group's world matrix. Visibility is ignored,
- *  exactly as `Box3.setFromObject` ignores it, so both measurements always agree
- *  about which meshes count as part of the food. */
-function measureLocalFloor(node: THREE.Object3D): number {
+/** Measures maximum dimension and lowest Y coordinate strictly in `node`'s local space.
+ *  By pulling back through the inverse of `node.matrixWorld`, any transforms applied
+ *  to `node`'s parents (scale, seat offset, KeepInView shrink) are completely cancelled out. */
+function measureLocalBounds(node: THREE.Object3D): { max: number; floor: number } | null {
   node.updateWorldMatrix(true, true);
   const invWorld = new THREE.Matrix4().copy(node.matrixWorld).invert();
   const local = new THREE.Matrix4();
@@ -34,39 +20,30 @@ function measureLocalFloor(node: THREE.Object3D): number {
   const piece = new THREE.Box3();
 
   node.traverse((child) => {
-    const geometry = (child as THREE.Mesh).geometry;
-    if (!geometry) return;
-    if (!geometry.boundingBox) geometry.computeBoundingBox();
-    if (!geometry.boundingBox) return;
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.geometry) return;
+    mesh.geometry.computeBoundingBox();
+    if (!geometryHasValidBounds(mesh.geometry)) return;
     local.copy(invWorld).multiply(child.matrixWorld);
-    box.union(piece.copy(geometry.boundingBox).applyMatrix4(local));
+    box.union(piece.copy(mesh.geometry.boundingBox!).applyMatrix4(local));
   });
 
-  return box.isEmpty() ? 0 : box.min.y;
+  if (box.isEmpty()) return null;
+  const size = box.getSize(new THREE.Vector3());
+  const max = Math.max(size.x, size.y, size.z);
+  if (max <= 1e-6) return null;
+  return { max, floor: box.min.y };
+}
+
+function geometryHasValidBounds(geometry: THREE.BufferGeometry): boolean {
+  const box = geometry.boundingBox;
+  if (!box) return false;
+  return Number.isFinite(box.min.x) && Number.isFinite(box.max.x);
 }
 
 /**
- * Scales its children so the ensemble fills a chosen on-screen footprint.
- *
- * Each food model is drawn at its own natural size — the scans carry a per-food
- * SCALE, the code-built ones use their raw units — so without this the picker and
- * the cut stage line them all up at different sizes. Fitting every model to its
- * own `target` (instead of hand-tuning every model's SCALE) keeps the food sized
- * to exactly the footprint the caller wants while leaving the model free to keep
- * its own proportions.
- *
- * The measurement covers only this model's own subtree: no model publishes a size
- * for another to scale against, so two foods on the same page never influence
- * each other.
- *
- * `groundY` is the other half of the placement. Fitting normalises a food's *size*
- * but leaves it centred on the origin, and on the cut stage the origin is half a
- * unit above the cutting board, so the taller foods ended up hanging through it.
- * Given the board's height, the food is dropped until its lowest point rests
- * there. A model that already seats itself — the donut's `REST_Y`, the ice
- * cream's lifted cone — comes out of this unchanged, because its own offset is
- * part of the box being measured. Omit `groundY` wherever there is no board
- * under the food, and the food stays centred on the origin as before.
+ * Scales its children so the ensemble fills a chosen on-screen footprint,
+ * and drops the food so its lowest point rests flush on `groundY`.
  */
 export default function FitScale({
   target = DEFAULT_TARGET,
@@ -77,28 +54,40 @@ export default function FitScale({
   groundY?: number;
   children: ReactNode;
 }) {
-  const group = useRef<THREE.Group>(null);
+  const contentRef = useRef<THREE.Group>(null);
+  const fittedRef = useRef(false);
   const [fit, setFit] = useState({ scale: 1, offsetY: 0 });
 
-  useLayoutEffect(() => {
-    const node = group.current;
-    if (!node) return;
-    const max = measureMax(node);
-    if (max === null) return;
-
-    const scale = target / max;
-    const floor = measureLocalFloor(node);
-    setFit({ scale, offsetY: groundY === undefined ? 0 : groundY - floor * scale });
+  const applyFit = useCallback(() => {
+    const node = contentRef.current;
+    if (!node) return false;
+    const bounds = measureLocalBounds(node);
+    if (!bounds) return false;
+    const scale = target / bounds.max;
+    const offsetY = groundY === undefined ? 0 : groundY - bounds.floor * scale;
+    setFit({ scale, offsetY });
+    fittedRef.current = true;
+    return true;
   }, [target, groundY]);
 
-  // The fit is taken once, while the food is whole. `KeepInView` covers what
-  // happens after — halves sliding apart on a canvas too narrow for them. The
-  // seat sits outside it, so `KeepInView` shrinking a too-wide food scales the
-  // food about its own middle and never drags it off the board.
+  useLayoutEffect(() => {
+    fittedRef.current = false;
+    applyFit();
+  }, [applyFit]);
+
+  // Fallback for async GLTF models that mount geometry after initial layout effect
+  useFrame(() => {
+    if (!fittedRef.current) {
+      applyFit();
+    }
+  });
+
   return (
-    <group ref={group} position={[0, fit.offsetY, 0]}>
+    <group position={[0, fit.offsetY, 0]}>
       <KeepInView>
-        <group scale={fit.scale}>{children}</group>
+        <group scale={fit.scale}>
+          <group ref={contentRef}>{children}</group>
+        </group>
       </KeepInView>
     </group>
   );

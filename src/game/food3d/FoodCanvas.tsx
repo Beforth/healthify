@@ -74,9 +74,12 @@ export default function FoodCanvas({
   // pause it for as long as the user is actually holding the drag.
   const [interacting, setInteracting] = useState(false);
 
+  const cameraPos: [number, number, number] = showPedestal ? [0, 1.1, 5.2] : [0, 1.25, 5.6];
+  const cameraTarget: [number, number, number] = showPedestal ? [0, -0.05, 0] : [0, 0.35, 0];
+
   return (
     <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: 'none' }}>
-      <Canvas camera={{ position: [0, 1.25, 5.6], fov: 46 }} dpr={[1, 2]}>
+      <Canvas camera={{ position: cameraPos, fov: 46 }} dpr={[1, 2]}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[3.2, 4.8, 3.5]} intensity={1.35} />
         <directionalLight position={[-3.5, 1.5, -2]} intensity={0.45} color="#cfe8ff" />
@@ -88,7 +91,7 @@ export default function FoodCanvas({
         </Suspense>
         <OrbitControls
           enabled={controlsEnabled}
-          target={[0, 0.35, 0]}
+          target={cameraTarget}
           enablePan={false}
           enableZoom
           minDistance={2.8}
