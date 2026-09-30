@@ -21,31 +21,13 @@ export default function FoodThumbnail3D({
   scale?: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const fallback = useRef<HTMLDivElement>(null);
   const drag = useRef({ x: 0, y: 0, moved: false });
   const hasModel = Boolean(FOOD_MODELS[foodId]);
   useLayoutEffect(() => {
     const surface = canvas.current;
     if (!hasModel || !surface) return;
-    surface.style.opacity = '0';
-    if (fallback.current) fallback.current.style.opacity = '1';
-    let painted = false;
-    let fadeTimer: number | undefined;
     try {
-      const detach = attachPreview(foodId, surface, scale, () => {
-        if (painted) return;
-        painted = true;
-        surface.style.opacity = '1';
-        fadeTimer = window.setTimeout(() => {
-          if (fallback.current && painted) {
-            fallback.current.style.opacity = '0';
-          }
-        }, 250);
-      });
-      return () => {
-        if (fadeTimer) clearTimeout(fadeTimer);
-        detach();
-      };
+      return attachPreview(foodId, surface, scale, () => {});
     } catch (error) {
       console.warn('3D previews unavailable; showing food illustrations.', error);
     }
@@ -55,19 +37,6 @@ export default function FoodThumbnail3D({
 
   return (
     <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
-      <div
-        ref={fallback}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'opacity 0.25s ease-out',
-        }}
-      >
-        <FoodIcon id={foodId} size={size} />
-      </div>
       <canvas
         ref={canvas}
         width={size}
@@ -79,8 +48,6 @@ export default function FoodThumbnail3D({
           inset: 0,
           width: size,
           height: size,
-          opacity: 0,
-          transition: 'opacity 0.3s ease-out',
           touchAction: 'none',
         }}
         onPointerDown={(event) => {

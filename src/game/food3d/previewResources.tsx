@@ -39,6 +39,21 @@ function disposeObject(object: THREE.Object3D, closeImages = false) {
   });
 }
 
+function cloneProcedural(source: THREE.Object3D): THREE.Object3D {
+  const result = source.clone(true);
+  result.traverse((node) => {
+    if (node instanceof THREE.Mesh) {
+      if (node.geometry) node.geometry = node.geometry.clone();
+      if (node.material) {
+        node.material = Array.isArray(node.material)
+          ? node.material.map((m) => m.clone())
+          : node.material.clone();
+      }
+    }
+  });
+  return result;
+}
+
 class BuildBoundary extends Component<{ children: ReactNode; fail: (error: Error) => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -103,8 +118,7 @@ export class PreviewBuilder {
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
         this.store!.getState().advance(this.time += 1 / 60, false);
         this.store!.getState().advance(this.time += 1 / 60, false);
-        source.removeFromParent();
-        object = source;
+        object = cloneProcedural(source);
       } finally {
         this.root.render(null);
       }
