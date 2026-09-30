@@ -37,6 +37,7 @@ import { scannedFood, type ScannedFoodConfig } from './ScannedFoodModel';
 type FoodModel = ComponentType<{
   cutProgressRef: MutableRefObject<number>;
   cutAngle?: number;
+  stage?: 'picker' | 'cut';
 }>;
 
 /** Long roots/pods/scans that sit with their length down z get a quarter turn so the
