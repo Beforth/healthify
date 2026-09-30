@@ -20,7 +20,7 @@ export default function Tutorial() {
   const StepIcon = steps[step].icon;
 
   return (
-    <div className="screen" style={{ background: 'linear-gradient(160deg, #eafff2 0%, #d3f9e2 100%)' }}>
+    <div className="screen">
       <div style={{ width: '100%', maxWidth: 420, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <BackButton fallback="/learn" />
         <button

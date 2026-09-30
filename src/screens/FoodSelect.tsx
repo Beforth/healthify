@@ -24,7 +24,7 @@ export default function FoodSelect() {
   const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
-    <div className="screen" style={{ background: 'linear-gradient(160deg, #eafff2 0%, #ffffff 100%)' }}>
+    <div className="screen">
       <BackButton fallback="/tutorial" />
       <div
         style={{

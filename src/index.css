@@ -26,7 +26,7 @@ body,
 }
 
 body {
-  background: var(--green-light);
+  background: #f7fcf9;
   color: var(--ink);
 }
 
@@ -65,6 +65,15 @@ button {
   transform: none;
 }
 
+@keyframes floatGlow {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(24px, -18px, 0) scale(1.06);
+  }
+}
+
 .screen {
   min-height: 100vh;
   width: 100%;
@@ -78,6 +87,13 @@ button {
   overflow-y: auto;
   overflow-x: hidden;
   isolation: isolate;
+  background-color: #f7fcf9;
+  background-image:
+    radial-gradient(1100px circle at 8% 10%, rgba(46, 204, 113, 0.16) 0%, transparent 60%),
+    radial-gradient(950px circle at 92% 10%, rgba(255, 209, 102, 0.18) 0%, transparent 55%),
+    radial-gradient(900px circle at 88% 90%, rgba(46, 204, 113, 0.14) 0%, transparent 55%),
+    radial-gradient(1000px circle at 10% 90%, rgba(31, 122, 77, 0.10) 0%, transparent 60%),
+    linear-gradient(170deg, #f7fdf9 0%, #ffffff 45%, #f3faf6 100%);
 }
 
 .screen::before {
@@ -86,13 +102,34 @@ button {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-repeat: repeat;
-  background-size: 220px 220px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='%231f7a4d' fill-opacity='0.055'%3E%3Ccircle cx='36' cy='38' r='16'/%3E%3Ccircle cx='36' cy='38' r='6' fill='%23eafff2' fill-opacity='1'/%3E%3Cpath d='M150 16c9 1 15 8 14 17-1 10-10 17-19 16-3 8-11 13-19 12-11-2-18-13-16-24 2-11 13-18 24-16 2-3 4-5 6-5 4-1 7-1 10 0z'/%3E%3Cpath d='M52 140c-9 20 4 36 21 34 16-2 27-20 21-38-4 2-16 8-14 8-6-9-16-12-24-9-4 2-3 3-4 5z' transform='rotate(18 62 158)'/%3E%3Crect x='140' y='150' width='32' height='24' rx='5'/%3E%3Cpath d='M198 66l-14 30a3 3 0 0 0 3 4h22a3 3 0 0 0 3-4z'/%3E%3Ccircle cx='204' cy='58' r='14'/%3E%3Cellipse cx='185' cy='205' rx='18' ry='15'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: radial-gradient(rgba(31, 122, 77, 0.08) 1.25px, transparent 1.25px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, black 40%, transparent 95%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, black 40%, transparent 95%);
+}
+
+.screen::after {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(420px circle at 18% 26%, rgba(46, 204, 113, 0.08), transparent 70%),
+    radial-gradient(460px circle at 82% 74%, rgba(255, 209, 102, 0.09), transparent 70%),
+    radial-gradient(360px circle at 75% 20%, rgba(77, 214, 255, 0.06), transparent 65%);
+  filter: blur(60px);
+  animation: floatGlow 18s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen::after {
+    animation: none;
+  }
 }
 
 .screen.pattern-light::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='%23ffffff' fill-opacity='0.14'%3E%3Ccircle cx='36' cy='38' r='16'/%3E%3Ccircle cx='36' cy='38' r='6' fill='%231f7a4d' fill-opacity='0.5'/%3E%3Cpath d='M150 16c9 1 15 8 14 17-1 10-10 17-19 16-3 8-11 13-19 12-11-2-18-13-16-24 2-11 13-18 24-16 2-3 4-5 6-5 4-1 7-1 10 0z'/%3E%3Cpath d='M52 140c-9 20 4 36 21 34 16-2 27-20 21-38-4 2-16 8-14 8-6-9-16-12-24-9-4 2-3 3-4 5z' transform='rotate(18 62 158)'/%3E%3Crect x='140' y='150' width='32' height='24' rx='5'/%3E%3Cpath d='M198 66l-14 30a3 3 0 0 0 3 4h22a3 3 0 0 0 3-4z'/%3E%3Ccircle cx='204' cy='58' r='14'/%3E%3Cellipse cx='185' cy='205' rx='18' ry='15'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1.25px, transparent 1.25px);
 }
 
 .screen > * {
@@ -101,10 +138,25 @@ button {
 }
 
 .card {
-  background: var(--card-bg);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 4px 6px -1px rgba(31, 122, 77, 0.03),
+    0 10px 24px -2px rgba(31, 122, 77, 0.07),
+    0 0 0 1px rgba(31, 122, 77, 0.05);
   padding: 24px;
+  transition: box-shadow 0.22s ease, border-color 0.22s ease, background-color 0.2s ease;
+}
+
+.card:hover:not(:disabled) {
+  border-color: rgba(46, 204, 113, 0.35);
+  box-shadow:
+    0 14px 32px -4px rgba(31, 122, 77, 0.12),
+    0 4px 10px rgba(0, 0, 0, 0.03),
+    0 0 0 1px rgba(46, 204, 113, 0.22);
 }
 
 @media (max-width: 720px) {

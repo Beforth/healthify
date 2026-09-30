@@ -16,10 +16,7 @@ export default function CoreIdea() {
   const navigate = useNavigate();
 
   return (
-    <div
-      className="screen"
-      style={{ background: 'linear-gradient(160deg, #fff6e0 0%, #ffe9b8 100%)' }}
-    >
+    <div className="screen">
       <BackButton fallback="/" />
       <motion.div
         initial={{ y: 20, opacity: 0 }}

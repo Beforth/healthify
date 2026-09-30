@@ -132,7 +132,6 @@ export default function GameScreen() {
     <div
       className="screen"
       style={{
-        background: 'linear-gradient(165deg, #f0fdf4 0%, #ffffff 50%, #f4fbf7 100%)',
         minHeight: '100vh',
         padding: '16px 20px 32px',
         boxSizing: 'border-box',
@@ -636,8 +635,6 @@ export default function GameScreen() {
                   margin: '0 auto',
                   textAlign: 'left',
                   borderRadius: 22,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
-                  background: '#ffffff',
                   padding: '18px 24px',
                 }}
               >

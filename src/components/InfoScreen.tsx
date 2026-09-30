@@ -7,7 +7,6 @@ export default function InfoScreen({ title, children }: { title: string; childre
     <div
       className="screen"
       style={{
-        background: 'linear-gradient(160deg, #eafff2 0%, #ffffff 100%)',
         alignItems: 'flex-start',
         textAlign: 'left',
         padding: '20px 20px 40px',
@@ -30,8 +29,6 @@ export default function InfoScreen({ title, children }: { title: string; childre
           style={{
             textAlign: 'left',
             borderRadius: 22,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
-            background: '#ffffff',
             padding: '22px 26px',
             color: 'var(--ink-soft)',
             fontSize: '0.96rem',
