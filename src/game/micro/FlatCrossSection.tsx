@@ -1,7 +1,10 @@
+import { useRef } from 'react';
 import { Candy, Citrus, Droplet, Flame, Leaf, Sparkles, Zap } from 'lucide-react';
 import CrossSectionShell, { type CrossSectionFact } from '../food3d/CrossSectionShell';
 import FlatCutStage from '../../components/FlatCutStage';
 import { MICRO } from './microStructures';
+import { FOOD_MODELS, NO_CUT_FOODS, foodSizeOf } from '../food3d/foodRegistry';
+import FitScale from '../food3d/FitScale';
 
 /**
  * The microscope screen for foods with no 3D model.
@@ -1399,13 +1402,35 @@ const FLAT_FACTS: Record<string, CrossSectionFact[]> = {
 export default function FlatCrossSection({ foodId }: { foodId: string }) {
   const facts = FLAT_FACTS[foodId] ?? [];
   const micro = MICRO[foodId];
+  const FoodModel = FOOD_MODELS[foodId];
+  const noCut = NO_CUT_FOODS.has(foodId);
+  const cutRef = useRef(noCut ? 0 : 1);
+  cutRef.current = noCut ? 0 : 1;
+
   if (!micro) return null;
+
+  const panelTitle = noCut
+    ? (FoodModel ? 'In 3D' : 'Whole Food')
+    : (FoodModel ? 'Your cut, in 3D' : 'Your cut');
 
   return (
     <CrossSectionShell
       facts={facts}
       micro={micro}
-      flatView={<FlatCutStage foodId={foodId} cut size={260} />}
+      panelTitle={panelTitle}
+      hasDots={false}
+      scene={
+        FoodModel
+          ? () => (
+              <FitScale target={foodSizeOf(foodId)}>
+                <FoodModel cutProgressRef={cutRef} stage="cut" />
+              </FitScale>
+            )
+          : undefined
+      }
+      flatView={
+        !FoodModel ? <FlatCutStage foodId={foodId} cut={!noCut} size={260} /> : undefined
+      }
     />
   );
 }

@@ -37,6 +37,7 @@ interface CrossSectionShellProps {
    *  be captioned "Your cut" next to a model nobody cut open, so they name
    *  themselves here instead. */
   panelTitle?: string;
+  hasDots?: boolean;
 }
 
 function PanelTitle({ children }: { children: ReactNode }) {
@@ -70,6 +71,7 @@ export default function CrossSectionShell({
   scene,
   flatView,
   panelTitle,
+  hasDots,
 }: CrossSectionShellProps) {
   // Deliberately starts empty. Pre-selecting a fact used to suppress the one line
   // of text that tells a child the thing is interactive at all.
@@ -77,7 +79,7 @@ export default function CrossSectionShell({
   const [variant, setVariant] = useState<MicroVariant>('cartoon');
   const activeFact = facts.find((f) => f.id === active) ?? null;
   const flatHasMarkers = typeof flatView === 'function';
-  const showDotHint = (Boolean(scene) || flatHasMarkers) && !activeFact;
+  const showDotHint = (hasDots ?? (Boolean(scene) || flatHasMarkers)) && !activeFact;
 
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: 980, margin: '0 auto' }}>

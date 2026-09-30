@@ -17,7 +17,7 @@ import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
 import DragRotate from '../game/food3d/DragRotate';
 import FlatCutStage from '../components/FlatCutStage';
 import FlatCrossSection from '../game/micro/FlatCrossSection';
-import { FOOD_MODELS, FOOD_CROSS_SECTIONS, foodSizeOf } from '../game/food3d/foodRegistry';
+import { FOOD_MODELS, FOOD_CROSS_SECTIONS, NO_CUT_FOODS, foodSizeOf } from '../game/food3d/foodRegistry';
 
 const topicMeta: Record<QuizTopic, { label: string; icon: typeof Droplet; color: string }> = {
   fat: { label: 'Fat', icon: Droplet, color: '#4dd6ff' },
@@ -25,35 +25,6 @@ const topicMeta: Record<QuizTopic, { label: string; icon: typeof Droplet; color:
   calories: { label: 'Calories', icon: Flame, color: '#ff8c42' },
   vitamins: { label: 'Vitamins & Minerals', icon: Citrus, color: '#8bd450' },
 };
-
-/** Foods that never get a cutting beat — drinks, bowls of loose grains or flakes,
- *  shelled nuts, loose candies or leaves. They are already opened or poured,
- *  so they stay whole with no knife or cut animation, and let the child inspect directly. */
-const NO_CUT_FOODS = new Set([
-  'milk',
-  'bubble-tea',
-  'oats',
-  'walnuts',
-  'spinach',
-  'candy',
-  'curd',
-  'green-peas',
-  'peanuts',
-  'rajma',
-  'urad-dal',
-  'moong-dal',
-  'chana-dal',
-  'masoor-dal',
-  'toor-dal',
-  'soybeans',
-  'brown-rice',
-  'bajra',
-  'ragi',
-  'cheese-fries',
-  'pasta',
-  'soft-drink',
-  'potato-chips',
-]);
 
 export default function GameScreen() {
   const { foodId } = useParams<{ foodId: string }>();
@@ -643,7 +614,7 @@ export default function GameScreen() {
                   border: '1px solid rgba(46, 204, 113, 0.2)',
                 }}
               >
-                <Microscope size={19} /> Microscopic {CrossSection ? '3D ' : ''}Cut View: {food.name}
+                <Microscope size={19} /> Microscopic {FoodModel ? '3D ' : ''}{noCut ? 'Nutrition View' : 'Cut View'}: {food.name}
               </div>
 
               <div style={{ marginBottom: 20 }}>

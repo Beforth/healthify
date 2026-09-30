@@ -51,6 +51,35 @@ const Z_CUT: [number, number, number] = [0, -Math.PI / 2, 0];
 const LYING: [number, number, number] = [0, 0.3, 0.1];
 const STAND: [number, number, number] = [0.06, 0.3, 0];
 
+/** Foods that never get a cutting beat — drinks, bowls of loose grains or flakes,
+ *  shelled nuts, loose candies or leaves. They are already opened or poured,
+ *  so they stay whole with no knife or cut animation, and let the child inspect directly. */
+export const NO_CUT_FOODS = new Set([
+  'milk',
+  'bubble-tea',
+  'oats',
+  'walnuts',
+  'spinach',
+  'candy',
+  'curd',
+  'green-peas',
+  'peanuts',
+  'rajma',
+  'urad-dal',
+  'moong-dal',
+  'chana-dal',
+  'masoor-dal',
+  'toor-dal',
+  'soybeans',
+  'brown-rice',
+  'bajra',
+  'ragi',
+  'cheese-fries',
+  'pasta',
+  'soft-drink',
+  'potato-chips',
+]);
+
 /** Every photoscanned glb in public/models wired to its food. Cut-face colours are invented
  *  — a scan is only a shell — and follow the real food's inside where one is visible. */
 const SCANNED: Record<string, ScannedFoodConfig> = {
