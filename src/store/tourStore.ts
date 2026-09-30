@@ -36,6 +36,14 @@ export function hasSeenTour(): boolean {
   }
 }
 
+export function markTourSeen(): void {
+  try {
+    localStorage.setItem(SEEN_KEY, '1');
+  } catch {
+    // storage unavailable (private mode etc.)
+  }
+}
+
 if (import.meta.env.DEV) {
   (window as unknown as { __tour: typeof useTourStore }).__tour = useTourStore;
 }

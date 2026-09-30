@@ -4,6 +4,7 @@ import { Box, Target, Star, Heart, ArrowRight, ChefHat, UtensilsCrossed } from '
 import { DonutIcon } from '../components/FoodIcon';
 import Breadcrumbs from '../components/Breadcrumbs';
 import { hasSeenTutorial } from '../lib/tutorialSeen';
+import { markTourSeen } from '../store/tourStore';
 
 const features = [
   { icon: Box, color: '#4dd6ff', title: 'Explore food in 3D', text: 'Spin, cut, and look inside real food shapes.' },
@@ -95,7 +96,10 @@ export default function CoreIdea() {
         className="btn"
         data-tour="show-me-how-button"
         style={{ marginTop: 24, display: 'inline-flex', alignItems: 'center', gap: 8 }}
-        onClick={() => navigate(hasSeenTutorial() ? '/foods' : '/tutorial')}
+        onClick={() => {
+          markTourSeen();
+          navigate(hasSeenTutorial() ? '/foods' : '/tutorial');
+        }}
       >
         {hasSeenTutorial() ? (
           <>
