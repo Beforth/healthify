@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Star, Leaf, Candy, Search, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
@@ -6,6 +6,7 @@ import { FOODS } from '../data/nutritionData';
 import { nextRequiredCategory, useGameStore } from '../store/gameStore';
 import Breadcrumbs from '../components/Breadcrumbs';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
+import { modelPreloader } from '../services/modelPreloader';
 
 const PAGE_SIZE = 8;
 
@@ -17,6 +18,10 @@ export default function FoodSelect() {
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'healthy' | 'junk'>('all');
   const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    modelPreloader.startBackgroundPreloading();
+  }, []);
 
   const required = nextRequiredCategory(lastCategoryPlayed);
   const visibleFoods = FOODS.filter((f) => {

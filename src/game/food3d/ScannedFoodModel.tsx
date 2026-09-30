@@ -268,12 +268,11 @@ export default function ScannedFoodModel({ config, cutProgressRef }: ScannedFood
   );
 }
 
-/** Builds a FOOD_MODELS entry for a scanned glb, preloading the file once. */
+/** Builds a FOOD_MODELS entry for a scanned glb on demand. */
 export function scannedFood(config: ScannedFoodConfig): ComponentType<{
   cutProgressRef: MutableRefObject<number>;
   cutAngle?: number;
 }> {
-  useGLTF.preload(`${import.meta.env.BASE_URL}${config.url}`);
   return function ScannedFood(props: { cutProgressRef: MutableRefObject<number>; cutAngle?: number }) {
     return <ScannedFoodModel config={config} {...props} />;
   };

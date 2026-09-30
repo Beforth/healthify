@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Microscope, Gamepad2, Play } from 'lucide-react';
 import { ChocolateBarIcon, DonutIcon, MangoIcon } from '../components/FoodIcon';
 import SideDrawer from '../components/SideDrawer';
 import { hasSeenTour, useTourStore } from '../store/tourStore';
+import FoodPreloaderOverlay from '../components/FoodPreloaderOverlay';
+import { modelPreloader } from '../services/modelPreloader';
 
 const floaters = [
   { render: () => <Microscope size={26} color="#1f7a4d" />, top: '12%', left: '10%', delay: 0 },
@@ -38,6 +40,7 @@ export default function Splash() {
   const navigate = useNavigate();
   const tourActive = useTourStore((s) => s.active);
   const startTour = useTourStore((s) => s.start);
+  const [showPreloader, setShowPreloader] = useState(false);
 
   useEffect(() => {
     // Only auto-start the website tour on first landing
@@ -48,13 +51,16 @@ export default function Splash() {
   }, []);
 
   const handlePlay = () => {
-    if (!hasSeenTour()) {
-      // First-time website trip: show the intro screen (/learn)
-      navigate('/learn');
+    if (modelPreloader.isReady()) {
+      navigate(hasSeenTour() ? '/foods' : '/learn');
     } else {
-      // Returning visitor: jump straight to foods!
-      navigate('/foods');
+      setShowPreloader(true);
     }
+  };
+
+  const handlePreloaderComplete = () => {
+    setShowPreloader(false);
+    navigate(hasSeenTour() ? '/foods' : '/learn');
   };
 
   return (
@@ -144,6 +150,8 @@ export default function Splash() {
           </motion.button>
         </div>
       </motion.div>
+
+      <FoodPreloaderOverlay isOpen={showPreloader} onComplete={handlePreloaderComplete} />
     </div>
   );
 }
