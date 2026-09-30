@@ -20,9 +20,18 @@ export default function Tutorial() {
   const StepIcon = steps[step].icon;
 
   return (
-    <div className="screen">
-      <div style={{ width: '100%', maxWidth: 460, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Breadcrumbs backFallback="/learn" items={[{ label: 'How to Play' }]} />
+    <div className="screen" style={{ justifyContent: 'flex-start', padding: '0 20px 48px' }}>
+      <header
+        style={{
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '16px 12px 10px',
+          boxSizing: 'border-box',
+        }}
+      >
+        <Breadcrumbs backFallback="/" items={[{ label: 'How to Play' }]} />
         <button
           onClick={() => {
             markTutorialSeen();
@@ -45,7 +54,7 @@ export default function Tutorial() {
         >
           Skip <SkipForward size={15} strokeWidth={2.5} />
         </button>
-      </div>
+      </header>
       <h1 style={{ color: 'var(--green-dark)', fontSize: '2rem', fontWeight: 900, marginTop: 20 }}>
         How to Play
       </h1>

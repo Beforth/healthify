@@ -24,16 +24,15 @@ export default function FoodSelect() {
   const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
-    <div className="screen" style={{ justifyContent: 'flex-start', padding: '16px 20px 48px' }}>
+    <div className="screen" style={{ justifyContent: 'flex-start', padding: '0 20px 48px' }}>
       <header
         style={{
           width: '100%',
-          maxWidth: 960,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          margin: '0 auto 16px',
-          padding: '4px 2px',
+          padding: '16px 12px 10px',
+          boxSizing: 'border-box',
         }}
       >
         <Breadcrumbs

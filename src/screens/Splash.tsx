@@ -1,10 +1,8 @@
-import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Microscope, Gamepad2, Play } from 'lucide-react';
 import { ChocolateBarIcon, DonutIcon, MangoIcon } from '../components/FoodIcon';
 import SideDrawer from '../components/SideDrawer';
-import { hasSeenTour, useTourStore } from '../store/tourStore';
 
 const floaters = [
   { render: () => <Microscope size={26} color="#1f7a4d" />, top: '12%', left: '10%', delay: 0 },
@@ -36,14 +34,6 @@ function Badge({ children }: { children: React.ReactNode }) {
 
 export default function Splash() {
   const navigate = useNavigate();
-  const tourActive = useTourStore((s) => s.active);
-  const startTour = useTourStore((s) => s.start);
-
-  useEffect(() => {
-    if (!hasSeenTour() && !tourActive) startTour();
-    // Only ever auto-starts once, on first landing — not on every re-render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div
@@ -87,24 +77,50 @@ export default function Splash() {
           Discover what's inside your food!
         </p>
 
-        <motion.button
-          className="btn"
-          data-tour="play-button"
-          style={{
-            marginTop: 36,
-            background: 'white',
-            color: 'var(--green-dark)',
-            boxShadow: '0 6px 0 #cfe9d9',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.05 }}
-          onClick={() => navigate('/learn')}
-        >
-          Let's Play! <Play size={18} fill="var(--green-dark)" />
-        </motion.button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 32 }}>
+          <motion.button
+            className="btn"
+            data-tour="play-button"
+            style={{
+              background: 'white',
+              color: 'var(--green-dark)',
+              boxShadow: '0 6px 0 #cfe9d9',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: '1.1rem',
+              padding: '14px 34px',
+            }}
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={() => navigate('/foods')}
+          >
+            Let's Play! <Play size={18} fill="var(--green-dark)" />
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={() => navigate('/tutorial')}
+            style={{
+              background: 'rgba(255, 255, 255, 0.22)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.45)',
+              color: 'white',
+              borderRadius: 999,
+              padding: '8px 22px',
+              fontSize: '0.92rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            }}
+          >
+            How to Play
+          </motion.button>
+        </div>
       </motion.div>
     </div>
   );

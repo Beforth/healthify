@@ -16,10 +16,18 @@ export default function CoreIdea() {
   const navigate = useNavigate();
 
   return (
-    <div className="screen">
-      <div style={{ width: '100%', maxWidth: 960, display: 'flex', justifyContent: 'flex-start', marginBottom: 16 }}>
+    <div className="screen" style={{ justifyContent: 'flex-start', padding: '0 20px 48px' }}>
+      <header
+        style={{
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'flex-start',
+          padding: '16px 12px 10px',
+          boxSizing: 'border-box',
+        }}
+      >
         <Breadcrumbs backFallback="/" items={[{ label: 'Learn' }]} />
-      </div>
+      </header>
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}

@@ -144,14 +144,13 @@ export default function GameScreen() {
         className="game-header"
         style={{
           width: '100%',
-          maxWidth: 960,
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
           rowGap: 10,
-          padding: '8px 4px 18px',
-          margin: '0 auto',
+          padding: '4px 12px 18px',
+          boxSizing: 'border-box',
           position: 'relative',
         }}
       >
