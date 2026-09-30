@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import BackButton from './BackButton';
+import Breadcrumbs from './Breadcrumbs';
 
 export default function InfoScreen({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -13,7 +13,7 @@ export default function InfoScreen({ title, children }: { title: string; childre
         boxSizing: 'border-box',
       }}
     >
-      <BackButton fallback="/" />
+      <Breadcrumbs backFallback="/" items={[{ label: title }]} />
 
       <motion.div
         initial={{ opacity: 0, y: 14 }}

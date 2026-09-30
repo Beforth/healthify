@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Star, Leaf, Candy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FOODS } from '../data/nutritionData';
 import { nextRequiredCategory, useGameStore } from '../store/gameStore';
-import BackButton from '../components/BackButton';
+import Breadcrumbs from '../components/Breadcrumbs';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
 
 const PAGE_SIZE = 8;
@@ -24,22 +24,42 @@ export default function FoodSelect() {
   const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
-    <div className="screen">
-      <BackButton fallback="/tutorial" />
-      <div
+    <div className="screen" style={{ justifyContent: 'flex-start', padding: '16px 20px 48px' }}>
+      <header
         style={{
-          position: 'absolute',
-          top: 20,
-          right: 24,
-          fontWeight: 800,
-          color: 'var(--green-dark)',
+          width: '100%',
+          maxWidth: 960,
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
+          justifyContent: 'space-between',
+          margin: '0 auto 16px',
+          padding: '4px 2px',
         }}
       >
-        <Star size={18} fill="#ffd166" color="#ffd166" /> {score} pts
-      </div>
+        <Breadcrumbs
+          backFallback="/"
+          items={[{ label: 'Pick a Food' }]}
+        />
+
+        <div
+          style={{
+            background: 'rgba(255, 255, 255, 0.92)',
+            backdropFilter: 'blur(12px)',
+            borderRadius: 999,
+            padding: '7px 16px',
+            border: '1px solid rgba(31, 122, 77, 0.12)',
+            boxShadow: '0 4px 14px rgba(31, 122, 77, 0.07)',
+            fontWeight: 800,
+            color: 'var(--green-dark)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: '0.92rem',
+          }}
+        >
+          <Star size={18} fill="#ffd166" color="#ffd166" /> {score} pts
+        </div>
+      </header>
 
       <h1 style={{ color: 'var(--green-dark)', fontSize: '2rem', fontWeight: 900, margin: 0 }}>
         Pick a Food
@@ -173,56 +193,85 @@ export default function FoodSelect() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 18,
-            marginTop: 22,
+            gap: 14,
+            marginTop: 26,
+            padding: '8px 16px',
+            background: 'rgba(255, 255, 255, 0.88)',
+            backdropFilter: 'blur(12px)',
+            borderRadius: 999,
+            border: '1px solid rgba(31, 122, 77, 0.1)',
+            boxShadow: '0 4px 16px rgba(31, 122, 77, 0.06)',
           }}
         >
           <motion.button
             whileTap={{ scale: 0.92 }}
-            aria-label="Previous foods"
+            whileHover={safePage === 0 ? undefined : { scale: 1.08 }}
+            aria-label="Previous page"
             disabled={safePage === 0}
             onClick={() => setPage(Math.max(0, safePage - 1))}
             style={{
-              width: 44,
-              height: 44,
+              width: 36,
+              height: 36,
               borderRadius: 999,
-              border: '1.5px solid rgba(0,0,0,0.08)',
-              background: safePage === 0 ? 'rgba(0,0,0,0.04)' : '#ffffff',
-              color: safePage === 0 ? 'var(--ink-soft)' : 'var(--green-dark)',
+              border: 'none',
+              background: safePage === 0 ? 'rgba(0,0,0,0.04)' : 'rgba(31, 122, 77, 0.08)',
+              color: safePage === 0 ? '#b0c0b8' : 'var(--green-dark)',
               cursor: safePage === 0 ? 'not-allowed' : 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: safePage === 0 ? 'none' : '0 6px 18px rgba(0,0,0,0.08)',
             }}
           >
-            <ChevronLeft size={22} strokeWidth={2.6} />
+            <ChevronLeft size={20} strokeWidth={2.6} />
           </motion.button>
 
-          <span style={{ fontWeight: 800, color: 'var(--ink-soft)', fontSize: '0.95rem' }}>
+          {/* Interactive breadcrumb dots */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px' }}>
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <motion.button
+                key={idx}
+                onClick={() => setPage(idx)}
+                aria-label={`Go to page ${idx + 1}`}
+                whileHover={{ scale: 1.25 }}
+                whileTap={{ scale: 0.9 }}
+                style={{
+                  width: idx === safePage ? 22 : 8,
+                  height: 8,
+                  borderRadius: 999,
+                  border: 'none',
+                  background: idx === safePage ? 'var(--green-dark)' : 'rgba(31, 122, 77, 0.24)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'all 0.22s ease',
+                }}
+              />
+            ))}
+          </div>
+
+          <span style={{ fontWeight: 800, color: 'var(--ink-soft)', fontSize: '0.88rem', minWidth: 42, textAlign: 'center' }}>
             {safePage + 1} / {totalPages}
           </span>
 
           <motion.button
             whileTap={{ scale: 0.92 }}
-            aria-label="Next foods"
+            whileHover={safePage >= totalPages - 1 ? undefined : { scale: 1.08 }}
+            aria-label="Next page"
             disabled={safePage >= totalPages - 1}
             onClick={() => setPage(Math.min(totalPages - 1, safePage + 1))}
             style={{
-              width: 44,
-              height: 44,
+              width: 36,
+              height: 36,
               borderRadius: 999,
-              border: '1.5px solid rgba(0,0,0,0.08)',
-              background: safePage >= totalPages - 1 ? 'rgba(0,0,0,0.04)' : '#ffffff',
-              color: safePage >= totalPages - 1 ? 'var(--ink-soft)' : 'var(--green-dark)',
+              border: 'none',
+              background: safePage >= totalPages - 1 ? 'rgba(0,0,0,0.04)' : 'rgba(31, 122, 77, 0.08)',
+              color: safePage >= totalPages - 1 ? '#b0c0b8' : 'var(--green-dark)',
               cursor: safePage >= totalPages - 1 ? 'not-allowed' : 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: safePage >= totalPages - 1 ? 'none' : '0 6px 18px rgba(0,0,0,0.08)',
             }}
           >
-            <ChevronRight size={22} strokeWidth={2.6} />
+            <ChevronRight size={20} strokeWidth={2.6} />
           </motion.button>
         </div>
       )}

@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Box, Target, Star, Heart, ArrowRight, ChefHat, UtensilsCrossed } from 'lucide-react';
 import { DonutIcon } from '../components/FoodIcon';
-import BackButton from '../components/BackButton';
+import Breadcrumbs from '../components/Breadcrumbs';
 import { hasSeenTutorial } from '../lib/tutorialSeen';
 
 const features = [
@@ -17,7 +17,9 @@ export default function CoreIdea() {
 
   return (
     <div className="screen">
-      <BackButton fallback="/" />
+      <div style={{ width: '100%', maxWidth: 960, display: 'flex', justifyContent: 'flex-start', marginBottom: 16 }}>
+        <Breadcrumbs backFallback="/" items={[{ label: 'Learn' }]} />
+      </div>
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}

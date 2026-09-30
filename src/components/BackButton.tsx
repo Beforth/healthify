@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Home } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface BackButtonProps {
@@ -11,9 +11,17 @@ interface BackButtonProps {
    *  screens where in-app history doesn't map to a sensible "back" (e.g. a chain
    *  of auto-picked foods), so Back always lands somewhere predictable instead. */
   force?: boolean;
+  /** Whether to show a Home button alongside the Back button. */
+  showHome?: boolean;
 }
 
-export default function BackButton({ fallback, dark, showLabel = true, force = false }: BackButtonProps) {
+export default function BackButton({
+  fallback,
+  dark,
+  showLabel = true,
+  force = false,
+  showHome = false,
+}: BackButtonProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const canGoBack = !force && location.key !== 'default';
@@ -26,30 +34,52 @@ export default function BackButton({ fallback, dark, showLabel = true, force = f
     }
   };
 
+  const buttonStyle: React.CSSProperties = {
+    borderRadius: 999,
+    border: dark ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,0,0,0.06)',
+    padding: showLabel ? '9px 18px' : '9px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    cursor: 'pointer',
+    background: dark ? 'rgba(255,255,255,0.25)' : '#ffffff',
+    color: dark ? 'white' : 'var(--ink)',
+    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+    fontSize: '0.92rem',
+    fontWeight: 700,
+    zIndex: 10,
+  };
+
   return (
-    <motion.button
-      onClick={goBack}
-      whileTap={{ scale: 0.94 }}
-      whileHover={{ scale: 1.04 }}
-      aria-label="Go back"
-      style={{
-        borderRadius: 999,
-        border: '1px solid rgba(0,0,0,0.06)',
-        padding: showLabel ? '9px 18px' : '9px',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 7,
-        cursor: 'pointer',
-        background: dark ? 'rgba(255,255,255,0.25)' : '#ffffff',
-        color: dark ? 'white' : 'var(--ink)',
-        boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
-        fontSize: '0.92rem',
-        fontWeight: 700,
-        zIndex: 10,
-      }}
-    >
-      <ArrowLeft size={18} strokeWidth={2.5} />
-      {showLabel && <span>Back</span>}
-    </motion.button>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
+      <motion.button
+        onClick={goBack}
+        whileTap={{ scale: 0.94 }}
+        whileHover={{ scale: 1.04 }}
+        aria-label="Go back"
+        style={buttonStyle}
+      >
+        <ArrowLeft size={18} strokeWidth={2.5} />
+        {showLabel && <span>Back</span>}
+      </motion.button>
+
+      {showHome && (
+        <motion.button
+          onClick={() => navigate('/')}
+          whileTap={{ scale: 0.94 }}
+          whileHover={{ scale: 1.04 }}
+          aria-label="Go to Home"
+          style={{
+            ...buttonStyle,
+            padding: showLabel ? '9px 16px' : '9px',
+            color: dark ? 'white' : 'var(--green-dark)',
+          }}
+        >
+          <Home size={17} strokeWidth={2.4} />
+          {showLabel && <span>Home</span>}
+        </motion.button>
+      )}
+    </div>
   );
 }
+

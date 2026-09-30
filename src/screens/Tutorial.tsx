@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { CircleCheckBig, UtensilsCrossed, Microscope, ArrowLeft, ArrowRight, ChefHat, SkipForward } from 'lucide-react';
 import { DonutIcon } from '../components/FoodIcon';
-import BackButton from '../components/BackButton';
+import Breadcrumbs from '../components/Breadcrumbs';
 import { markTutorialSeen } from '../lib/tutorialSeen';
 
 const steps = [
@@ -21,8 +21,8 @@ export default function Tutorial() {
 
   return (
     <div className="screen">
-      <div style={{ width: '100%', maxWidth: 420, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <BackButton fallback="/learn" />
+      <div style={{ width: '100%', maxWidth: 460, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Breadcrumbs backFallback="/learn" items={[{ label: 'How to Play' }]} />
         <button
           onClick={() => {
             markTutorialSeen();
@@ -52,14 +52,20 @@ export default function Tutorial() {
 
       <div style={{ display: 'flex', gap: 8, margin: '16px 0 28px' }}>
         {steps.map((_, i) => (
-          <motion.div
+          <motion.button
             key={i}
+            onClick={() => setStep(i)}
+            aria-label={`Go to step ${i + 1}`}
             animate={{ scale: i === step ? 1.3 : 1 }}
+            whileHover={{ scale: 1.2 }}
             style={{
               width: 10,
               height: 10,
               borderRadius: '50%',
+              border: 'none',
               background: i === step ? 'var(--green)' : '#c7ecd7',
+              cursor: 'pointer',
+              padding: 0,
             }}
           />
         ))}

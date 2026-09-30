@@ -6,7 +6,7 @@ import { getFoodById, randomFoodOfCategory, type QuizTopic } from '../data/nutri
 import { useGameStore } from '../store/gameStore';
 import { useReviewStore } from '../store/reviewStore';
 import FoodIcon from '../components/FoodIcon';
-import BackButton from '../components/BackButton';
+import Breadcrumbs from '../components/Breadcrumbs';
 import Celebration from '../components/Celebration';
 import BodyEffect from '../components/BodyEffect';
 import FoodCanvas, { BOARD_TOP_Y } from '../game/food3d/FoodCanvas';
@@ -155,9 +155,16 @@ export default function GameScreen() {
           position: 'relative',
         }}
       >
-        {/* Left: Back Button Capsule + Skip (only while cutting / inspecting) */}
+        {/* Left: Breadcrumbs Capsule (Back, Home, Foods, Food Name) + Skip */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <BackButton fallback="/foods" force />
+          <Breadcrumbs
+            backFallback="/foods"
+            forceBack
+            items={[
+              { label: 'Foods', to: '/foods' },
+              { label: food.name },
+            ]}
+          />
           {(gameStep === 'cut' || gameStep === 'microscope') && (
             <motion.button
               whileTap={{ scale: 0.94 }}
