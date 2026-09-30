@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Droplet, Candy, Flame, Citrus, PartyPopper, RotateCw, Microscope, Hand, Sparkles, X, SkipForward } from 'lucide-react';
+import { Droplet, Candy, Flame, Citrus, PartyPopper, RotateCw, Microscope, Hand, Sparkles, X, SkipForward, Check } from 'lucide-react';
 import { getFoodById, randomFoodOfCategory, type QuizTopic } from '../data/nutritionData';
 import { useGameStore } from '../store/gameStore';
 import { useReviewStore } from '../store/reviewStore';
@@ -705,56 +705,115 @@ export default function GameScreen() {
               <h2 style={{ color: '#134e2c', fontSize: '1.4rem', fontWeight: 800, margin: '0 auto 20px' }}>
                 {quizQuestion.question}
               </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, margin: '0 auto', maxWidth: 360 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, margin: '0 auto', maxWidth: 380 }}>
                 {quizQuestion.options.map((opt, i) => {
                   const isWrongPick = wrongChoice === i;
                   const isPicked = chosenOption === i;
+                  const letter = String.fromCharCode(65 + i);
                   return (
                     <motion.button
                       key={opt}
                       className="btn secondary"
-                      whileTap={{ scale: 0.96 }}
-                      animate={isWrongPick ? { x: [0, -6, 5, 0] } : { x: 0 }}
-                      transition={{ duration: 0.4 }}
-                      style={{
-                        background: isWrongPick ? '#fee2e2' : isPicked ? '#dff5e6' : '#ffffff',
-                        border: isWrongPick
-                          ? '2px solid #ef4444'
+                      whileTap={{ scale: 0.97 }}
+                      whileHover={isWrongPick ? undefined : { scale: 1.02, x: 2 }}
+                      animate={
+                        isWrongPick
+                          ? { x: [0, -8, 7, -5, 3, 0] }
                           : isPicked
-                            ? '2px solid #2ecc71'
-                            : '1.5px solid rgba(0,0,0,0.08)',
-                        borderRadius: 16,
-                        padding: '12px 20px',
-                        fontSize: '0.96rem',
+                            ? { scale: [1, 1.015, 1] }
+                            : { x: 0 }
+                      }
+                      transition={{ duration: 0.35 }}
+                      style={{
+                        position: 'relative',
+                        background: isWrongPick ? '#fff1f2' : isPicked ? '#ebfbee' : '#ffffff',
+                        border: isWrongPick
+                          ? '2px solid #f43f5e'
+                          : isPicked
+                            ? '2px solid #10b981'
+                            : '1.5px solid rgba(0, 0, 0, 0.08)',
+                        borderRadius: 18,
+                        padding: '14px 18px',
+                        fontSize: '0.98rem',
                         fontWeight: 700,
-                        color: isWrongPick ? '#b91c1c' : '#134e2c',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+                        color: isWrongPick ? '#be123c' : isPicked ? '#065f46' : '#1e3a2b',
+                        boxShadow: isPicked
+                          ? '0 6px 20px rgba(16, 185, 129, 0.22), 0 0 0 3px rgba(16, 185, 129, 0.15)'
+                          : isWrongPick
+                            ? '0 6px 18px rgba(244, 63, 94, 0.2)'
+                            : '0 4px 12px rgba(0,0,0,0.04)',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        cursor: 'pointer',
+                        transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease',
                       }}
                       onClick={() => setChosenOption(i)}
                     >
-                      {opt}
-                      {isWrongPick && <X size={17} strokeWidth={3} />}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', flex: 1 }}>
+                        <span
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            background: isWrongPick ? '#fecdd3' : isPicked ? '#10b981' : '#f0fdf4',
+                            color: isWrongPick ? '#be123c' : isPicked ? '#ffffff' : '#166534',
+                            fontWeight: 800,
+                            fontSize: '0.88rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            boxShadow: isPicked ? '0 2px 6px rgba(16, 185, 129, 0.35)' : 'none',
+                            border: isPicked ? 'none' : '1px solid rgba(22, 101, 52, 0.2)',
+                          }}
+                        >
+                          {letter}
+                        </span>
+                        <span style={{ lineHeight: 1.35 }}>{opt}</span>
+                      </div>
+                      {isWrongPick && <X size={20} strokeWidth={3} color="#be123c" />}
+                      {isPicked && !isWrongPick && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: '#10b981',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Check size={14} strokeWidth={3} />
+                        </motion.span>
+                      )}
                     </motion.button>
                   );
                 })}
               </div>
               <motion.button
                 className="btn"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.94 }}
+                whileHover={chosenOption === null ? undefined : { scale: 1.05, y: -2 }}
+                whileTap={chosenOption === null ? undefined : { scale: 0.95 }}
                 style={{
-                  marginTop: 22,
-                  background: '#1c6b48',
+                  marginTop: 24,
+                  background: chosenOption === null ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                   color: '#ffffff',
                   borderRadius: 999,
-                  padding: '12px 36px',
-                  fontSize: '1rem',
+                  padding: '14px 44px',
+                  fontSize: '1.02rem',
                   fontWeight: 800,
-                  boxShadow: '0 6px 18px rgba(28, 107, 72, 0.3)',
+                  letterSpacing: 0.5,
+                  boxShadow: chosenOption === null ? 'none' : '0 10px 24px rgba(16, 185, 129, 0.35)',
+                  cursor: chosenOption === null ? 'not-allowed' : 'pointer',
+                  border: 'none',
+                  transition: 'all 0.25s ease',
                 }}
                 disabled={chosenOption === null}
                 onClick={() => {
