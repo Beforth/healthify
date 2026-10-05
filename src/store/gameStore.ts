@@ -4,6 +4,8 @@ import type { FoodCategory, QuizTopic } from '../data/nutritionData';
 export type GameStep = 'choose-topic' | 'cut' | 'microscope' | 'quiz' | 'result';
 
 interface GameState {
+  selectedCategory: FoodCategory | null;
+  /** Category of the most recently submitted answer, not the last food opened. */
   lastCategoryPlayed: FoodCategory | null;
   selectedTopic: QuizTopic | null;
   gameStep: GameStep;
@@ -17,6 +19,7 @@ interface GameState {
 }
 
 export const useGameStore = create<GameState>((set) => ({
+  selectedCategory: null,
   lastCategoryPlayed: null,
   selectedTopic: null,
   gameStep: 'choose-topic',
@@ -24,7 +27,7 @@ export const useGameStore = create<GameState>((set) => ({
 
   selectFood: (_foodId, category) =>
     set({
-      lastCategoryPlayed: category,
+      selectedCategory: category,
       gameStep: 'choose-topic',
       selectedTopic: null,
       lastAnswerCorrect: null,
@@ -34,23 +37,28 @@ export const useGameStore = create<GameState>((set) => ({
 
   advanceStep: (step) => set({ gameStep: step }),
 
-  answerQuiz: (correct) => set({ lastAnswerCorrect: correct, gameStep: 'result' }),
+  answerQuiz: (correct) => set((state) => ({
+    lastCategoryPlayed: state.selectedCategory ?? state.lastCategoryPlayed,
+    lastAnswerCorrect: correct,
+    gameStep: 'result',
+  })),
 
 
   resetForNextFood: () =>
     set({
+      selectedCategory: null,
       selectedTopic: null,
       gameStep: 'choose-topic',
       lastAnswerCorrect: null,
     }),
 }));
 
-/** Given the last category played, which category should be offered next (alternation rule). */
+/** Alternate only after an answer is submitted, whether correct or incorrect. */
 export function nextRequiredCategory(last: FoodCategory | null): FoodCategory | null {
   if (last === null) return null;
   return last === 'healthy' ? 'junk' : 'healthy';
 }
 
-if (import.meta.env.DEV) {
+if (import.meta.env?.DEV) {
   (window as unknown as { __game: typeof useGameStore }).__game = useGameStore;
 }

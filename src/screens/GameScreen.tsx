@@ -65,10 +65,8 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (!food) return;
-    // Opening /play/<food> directly — a shared link, a refresh, the back button
-    // — never goes through the food picker, so the store never learned which
-    // category was played and the healthy/junk alternation quietly stopped
-    // applying. Recording it here means every route into a food counts.
+    // Track the current food even when entering through a direct link.
+    // Opening a food does not change the category restriction; answering does.
     preloadForGame(food.id);
     selectFood(food.id, food.category);
     setCut(false);
