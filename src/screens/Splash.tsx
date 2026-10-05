@@ -1,4 +1,5 @@
 import { usePlayerStore } from '../store/playerStore';
+import UsernameModal from '../components/UsernameModal';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -40,17 +41,17 @@ function Badge({ children }: { children: React.ReactNode }) {
 export default function Splash() {
   const navigate = useNavigate();
   const username = usePlayerStore((s) => s.player.username);
+  const usernameConfirmed = usePlayerStore((s) => s.usernameConfirmed);
   const tourActive = useTourStore((s) => s.active);
   const startTour = useTourStore((s) => s.start);
   const [showPreloader, setShowPreloader] = useState(false);
 
   useEffect(() => {
     // Only auto-start the website tour on first landing
-    if (!hasSeenTour() && !tourActive) {
+    if (usernameConfirmed && !hasSeenTour() && !tourActive) {
       startTour();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [usernameConfirmed, tourActive, startTour]);
 
   const handlePlay = () => {
     if (modelPreloader.isReady()) {
@@ -74,6 +75,7 @@ export default function Splash() {
       }}
     >
       <SideDrawer />
+      {!usernameConfirmed && <UsernameModal />}
       <p style={{ overflowWrap: 'anywhere', maxWidth: '100%' }}>Hi, {username}!</p>
 
       {floaters.map((f, i) => (

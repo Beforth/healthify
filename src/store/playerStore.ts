@@ -6,9 +6,14 @@ export interface Player {
 }
 
 const USER_KEY = 'healthify_username';
+const CONFIRMED_KEY = 'healthify_username_confirmed';
 const PLAYER_PREFIX = 'healthify_player_';
 const validName = (name: unknown): name is string =>
-  typeof name === 'string' && /^[A-Za-z]+-[a-f0-9]{12}$/.test(name);
+  typeof name === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(name);
+
+function confirmed(): boolean {
+  try { return localStorage.getItem(CONFIRMED_KEY) === '1'; } catch { return false; }
+}
 
 function readPlayers(): Player[] {
   const players: Player[] = [];
@@ -58,6 +63,8 @@ interface PlayerState {
   player: Player;
   players: Player[];
   storageAvailable: boolean;
+  usernameConfirmed: boolean;
+  confirmUsername: (name: string) => string | null;
   addPoints: (points: number) => void;
   refresh: () => void;
 }
@@ -66,8 +73,42 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   player: initialPlayer,
   players: [...savedPlayers.filter((p) => p.username !== initialPlayer.username), initialPlayer],
   storageAvailable,
+  usernameConfirmed: confirmed(),
+  confirmUsername: (name) => {
+    if (get().usernameConfirmed || confirmed()) {
+      get().refresh();
+      return 'Your explorer name has already been saved.';
+    }
+    const username = name.trim();
+    if (!validName(username)) return 'Use 3–32 letters, numbers, underscores or hyphens. Start with a letter or number.';
+    const previous = get().player;
+    const players = readPlayers();
+    if (players.some((p) => p.username !== previous.username && p.username.toLowerCase() === username.toLowerCase())) {
+      return 'That name is already taken in this browser. Try another one.';
+    }
+    const player = { username, score: players.find((p) => p.username === previous.username)?.score ?? previous.score };
+    try {
+      // Keep the original profile intact unless the new identity and lock save successfully.
+      localStorage.setItem(PLAYER_PREFIX + username, JSON.stringify(player));
+      localStorage.setItem(USER_KEY, username);
+      localStorage.setItem(CONFIRMED_KEY, '1');
+    } catch {
+      try {
+        localStorage.setItem(USER_KEY, previous.username);
+        if (username !== previous.username) localStorage.removeItem(PLAYER_PREFIX + username);
+      } catch { /* Storage may remain unavailable. */ }
+      set({ storageAvailable: false });
+      return 'Your name could not be saved. Please enable browser storage and try again.';
+    }
+    try {
+      if (username !== previous.username) localStorage.removeItem(PLAYER_PREFIX + previous.username);
+    } catch { /* The confirmed identity is already safely stored. */ }
+    set({ player, usernameConfirmed: true, storageAvailable: true, players: [...players.filter((p) => p.username !== previous.username), player] });
+    return null;
+  },
   addPoints: (points) => {
     if (!Number.isSafeInteger(points)) return;
+    get().refresh();
     const current = get().player;
     const stored = readPlayers().find((p) => p.username === current.username);
     const player = { ...current, score: (stored?.score ?? current.score) + points };
@@ -77,8 +118,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
   refresh: () => {
     const players = readPlayers();
-    const player = players.find((p) => p.username === get().player.username) ?? get().player;
-    set({ player, players: [...players.filter((p) => p.username !== player.username), player] });
+    let username = get().player.username;
+    try { username = localStorage.getItem(USER_KEY) ?? username; } catch { /* Optional storage. */ }
+    const player = players.find((p) => p.username === username) ?? get().player;
+    set({ player, usernameConfirmed: get().usernameConfirmed || confirmed(), players: [...players.filter((p) => p.username !== player.username), player] });
   },
 }));
 

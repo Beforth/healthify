@@ -6,6 +6,7 @@ globalThis.localStorage = {
   get length() { return data.size; },
   key: (index) => [...data.keys()][index] ?? null,
   getItem: (key) => data.get(key) ?? null,
+  removeItem: (key) => data.delete(key),
   setItem: (key, value) => data.set(key, String(value)),
 };
 let version = 0;
@@ -69,4 +70,67 @@ test('another tab score update is included in the next answer', async () => {
   second.getState().addPoints(-5);
   first.getState().refresh();
   assert.equal(first.getState().player.score, 5);
+});
+
+test('a name can be saved once, preserving points and removing the old leaderboard entry', async () => {
+  data.clear();
+  const store = await load();
+  const original = store.getState().player.username;
+  store.getState().addPoints(20);
+  assert.equal(store.getState().usernameConfirmed, false);
+  assert.equal(store.getState().confirmUsername('  SuperPanda  '), null);
+  assert.deepEqual(store.getState().player, { username: 'SuperPanda', score: 20 });
+  assert.equal(data.has('healthify_player_' + original), false);
+  const reloaded = await load();
+  assert.equal(reloaded.getState().usernameConfirmed, true);
+  assert.equal(reloaded.getState().players.length, 1);
+  assert.ok(reloaded.getState().confirmUsername('AnotherName'));
+  assert.equal(reloaded.getState().player.username, 'SuperPanda');
+});
+
+test('keeping the generated name also uses the one-time save', async () => {
+  data.clear();
+  const store = await load();
+  assert.equal(store.getState().confirmUsername(store.getState().player.username), null);
+  assert.equal((await load()).getState().usernameConfirmed, true);
+});
+
+test('invalid and duplicate names do not use up the edit', async () => {
+  data.clear();
+  const store = await load();
+  data.set('healthify_player_TakenName', JSON.stringify({ username: 'TakenName', score: 10 }));
+  for (const name of ['', 'ab', '<script>', 'A'.repeat(33), 'takenname']) {
+    assert.ok(store.getState().confirmUsername(name));
+    assert.equal(store.getState().usernameConfirmed, false);
+  }
+  assert.equal(store.getState().confirmUsername('My_Panda-123'), null);
+});
+
+test('an older tab cannot rename again or restore the previous identity when scoring', async () => {
+  data.clear();
+  const first = await load();
+  const second = await load();
+  assert.equal(first.getState().confirmUsername('BraveExplorer'), null);
+  assert.ok(second.getState().confirmUsername('DifferentExplorer'));
+  second.getState().addPoints(10);
+  const reloaded = await load();
+  assert.deepEqual(reloaded.getState().player, { username: 'BraveExplorer', score: 10 });
+  assert.equal(reloaded.getState().players.length, 1);
+});
+
+test('failed storage save leaves the name editable and the old profile intact', async () => {
+  data.clear();
+  const store = await load();
+  const original = store.getState().player.username;
+  const setItem = localStorage.setItem;
+  localStorage.setItem = (key, value) => {
+    if (key === 'healthify_username_confirmed') throw Error('quota');
+    setItem(key, value);
+  };
+  try {
+    assert.ok(store.getState().confirmUsername('NewName'));
+    assert.equal(store.getState().usernameConfirmed, false);
+    assert.equal(data.get('healthify_username'), original);
+    assert.equal(data.has('healthify_player_NewName'), false);
+  } finally { localStorage.setItem = setItem; }
 });

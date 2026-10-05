@@ -34,7 +34,7 @@ See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rule
 
 The app opens directly on Home and automatically assigns a random explorer name, saves it as `healthify_username`
 in localStorage, and reuses it on future visits. Each profile's score is saved
-under `healthify_player_<username>`. The assigned name is displayed on Home and cannot be edited or switched in the app.
+under `healthify_player_<username>`. On Home, a first-visit popup lets the child keep or edit the assigned name once. Saving persists the name and a confirmation flag, preserves points, and locks further edits. The tour starts after saving.
 There is no login screen or option to create extra profiles. No password or personal information is required.
 
 Open `/#/leaderboard` to see local profiles ordered by score. Equal scores share
