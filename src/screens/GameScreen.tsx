@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { usePlayerStore } from '../store/playerStore';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -30,7 +32,6 @@ export default function GameScreen() {
   const { foodId } = useParams<{ foodId: string }>();
   const navigate = useNavigate();
   const {
-    score,
     gameStep,
     selectedTopic,
     lastAnswerCorrect,
@@ -38,9 +39,10 @@ export default function GameScreen() {
     selectTopic,
     advanceStep,
     answerQuiz,
-    addPoints,
     resetForNextFood,
   } = useGameStore((s) => s);
+  const score = usePlayerStore((s) => s.player.score);
+  const addPoints = usePlayerStore((s) => s.addPoints);
   const recordAnswer = useReviewStore((s) => s.recordAnswer);
 
   const [cut, setCut] = useState(false);
@@ -247,6 +249,7 @@ export default function GameScreen() {
               Score
             </span>
             <span style={{ fontSize: '1.18rem', fontWeight: 900, color: '#134e2c' }}>{score}</span>
+            <Link to="/leaderboard" style={{ color: 'var(--green-dark)' }}>Leaderboard</Link>
           </div>
         </div>
       </header>
@@ -822,6 +825,7 @@ export default function GameScreen() {
                 }}
                 disabled={chosenOption === null}
                 onClick={() => {
+                  if (useGameStore.getState().gameStep !== 'quiz' || chosenOption === null) return;
                   const correct = chosenOption === quizQuestion.correctIndex;
                   if (!firstAttemptDone) recordAnswer();
                   if (correct) {

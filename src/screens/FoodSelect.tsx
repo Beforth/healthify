@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { usePlayerStore } from '../store/playerStore';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +15,7 @@ const PAGE_SIZE = 8;
 
 export default function FoodSelect() {
   const navigate = useNavigate();
-  const score = useGameStore((s) => s.score);
+  const score = usePlayerStore((s) => s.player.score);
   const lastCategoryPlayed = useGameStore((s) => s.lastCategoryPlayed);
   const selectFood = useGameStore((s) => s.selectFood);
   const [query, setQuery] = useState('');
@@ -84,7 +86,7 @@ export default function FoodSelect() {
             fontSize: '0.92rem',
           }}
         >
-          <Star size={18} fill="#ffd166" color="#ffd166" /> {score} pts
+          <Star size={18} fill="#ffd166" color="#ffd166" /> {score} pts <Link to="/leaderboard" style={{ color: 'var(--green-dark)' }}>Leaderboard</Link>
         </div>
       </header>
 

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, Info, FileText, Mail, Compass } from 'lucide-react';
+import { Menu, X, Info, FileText, Mail, Compass, Trophy } from 'lucide-react';
 import { useTourStore } from '../store/tourStore';
 
 const LINKS = [
+  { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { to: '/about', label: 'About Us', icon: Info },
   { to: '/terms', label: 'Terms & Conditions', icon: FileText },
   { to: '/contact', label: 'Contact Us', icon: Mail },

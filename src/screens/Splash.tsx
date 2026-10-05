@@ -1,3 +1,4 @@
+import { usePlayerStore } from '../store/playerStore';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +39,7 @@ function Badge({ children }: { children: React.ReactNode }) {
 
 export default function Splash() {
   const navigate = useNavigate();
+  const username = usePlayerStore((s) => s.player.username);
   const tourActive = useTourStore((s) => s.active);
   const startTour = useTourStore((s) => s.start);
   const [showPreloader, setShowPreloader] = useState(false);
@@ -72,6 +74,7 @@ export default function Splash() {
       }}
     >
       <SideDrawer />
+      <p style={{ overflowWrap: 'anywhere', maxWidth: '100%' }}>Hi, {username}!</p>
 
       {floaters.map((f, i) => (
         <motion.div

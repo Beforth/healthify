@@ -1,3 +1,4 @@
+import Leaderboard from './screens/Leaderboard';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import Splash from './screens/Splash';
 import CoreIdea from './screens/CoreIdea';
@@ -24,6 +25,8 @@ function App() {
       <ReviewModal />
       <Routes>
         <Route path="/" element={<Splash />} />
+        <Route path="/home" element={<Navigate to="/" replace />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/learn" element={<CoreIdea />} />
         <Route path="/tutorial" element={<Tutorial />} />
         <Route path="/foods" element={<FoodSelect />} />

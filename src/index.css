@@ -183,3 +183,18 @@ button {
     flex-basis: 100%;
   }
 }
+
+.player-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 24px; }
+.player-actions a { color: var(--green-dark); }
+.player-actions a.btn { color: white; text-decoration: none; }
+.leaderboard-card { width: min(100%, 760px); }
+.leaderboard-note { color: var(--ink-soft); font-size: .9rem; }
+.leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 24px; text-align: left; table-layout: fixed; }
+.leaderboard-table caption { font-size: .85rem; color: var(--ink-soft); padding-bottom: 12px; }
+.leaderboard-table th, .leaderboard-table td { padding: 14px 8px; border-bottom: 1px solid #d8eadd; overflow-wrap: anywhere; }
+.leaderboard-table th:first-child { width: 18%; }
+.leaderboard-table th:last-child { width: 20%; }
+.leaderboard-table td:last-child, .leaderboard-table th:last-child { text-align: right; }
+.current-player { background: var(--green-light); }
+.you-badge { display: inline-block; padding: 2px 8px; margin-left: 8px; border-radius: 12px; background: var(--green-dark); color: white; font-size: .75rem; }
+:focus-visible { outline: 3px solid #2461bb; outline-offset: 4px; }
