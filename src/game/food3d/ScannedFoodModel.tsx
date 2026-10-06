@@ -85,7 +85,7 @@ function MarkerAt({
     const g = group.current;
     if (!g?.parent) return;
     g.parent.getWorldScale(world);
-    const size = room ? Math.min(MARKER_WORLD, Math.max(0.5, room * world.x * 0.4)) : MARKER_WORLD;
+    const size = room ? Math.min(MARKER_WORLD, Math.max(0.4, room * world.x * 0.3)) : MARKER_WORLD;
     g.scale.setScalar(size / Math.max(world.x, 1e-4));
   });
   return (
@@ -165,7 +165,7 @@ function pointsOnFace(
   const reach = Math.max(...cands.map((c) => c.edge)) || 1;
   // a thin stick or tail hangs off the main body (a lollipop's handle): dots belong on the
   // body, so when there is room, only the thick part of the face is considered
-  const thick = cands.filter((c) => c.edge >= reach * 0.45);
+  const thick = cands.filter((c) => c.edge >= reach * 0.3);
   if (thick.length >= count * 4) {
     cands.length = 0;
     cands.push(...thick);
@@ -177,7 +177,9 @@ function pointsOnFace(
     for (const c of cands) {
       const apart = chosen.length ? Math.min(...chosen.map((q) => Math.hypot(q.y - c.y, q.z - c.z))) : reach * 2;
       // deep inside the face first, then spread out; a dot hugging the rim is worth little
-      const score = Math.min(apart, reach * 1.6) + c.edge * 1.2;
+      // spreading out matters most: the dots should land in different parts of the food,
+      // the way the apple's skin, flesh, seeds and core each get their own
+      const score = Math.min(apart, reach * 3) * 1.6 + c.edge * 0.5;
       if (score > bestScore) {
         bestScore = score;
         best = c;
