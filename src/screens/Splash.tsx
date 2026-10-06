@@ -9,6 +9,7 @@ import SideDrawer from '../components/SideDrawer';
 import { hasSeenTour, useTourStore } from '../store/tourStore';
 import FoodPreloaderOverlay from '../components/FoodPreloaderOverlay';
 import { modelPreloader } from '../services/modelPreloader';
+import { useGameStore } from '../store/gameStore';
 
 const floaters = [
   { render: () => <Microscope size={26} color="#1f7a4d" />, top: '12%', left: '10%', delay: 0 },
@@ -45,6 +46,12 @@ export default function Splash() {
   const tourActive = useTourStore((s) => s.active);
   const startTour = useTourStore((s) => s.start);
   const [showPreloader, setShowPreloader] = useState(false);
+
+  // Coming back to Home starts a fresh round: the healthy/treat alternation that locks half
+  // the foods after each answer is dropped, so any food can be picked again.
+  useEffect(() => {
+    useGameStore.setState({ lastCategoryPlayed: null });
+  }, []);
 
   useEffect(() => {
     // Only auto-start the website tour on first landing

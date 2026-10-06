@@ -51,7 +51,7 @@ export default function Hotspot({ id, position, color, active, onSelect, scale =
   // On a phone the whole canvas is a third as wide, so the same dot is a third as easy to
   // spot and to hit. Narrow canvases get a clearly bigger dot, with a bigger tap target.
   const canvasWidth = useThree((state) => state.size.width);
-  const boost = canvasWidth < 520 ? 1.6 : 1;
+  const boost = canvasWidth < 520 ? 1.35 : 1;
   const isActive = active === id;
   const isDimmed = active !== null && !isActive;
   const ripple = useRef<THREE.Mesh>(null);
