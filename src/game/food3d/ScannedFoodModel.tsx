@@ -70,10 +70,14 @@ function MarkerAt({
   position,
   fact,
   markers,
+  room,
 }: {
   position: [number, number, number];
   fact: { id: string; color: string };
   markers: FoodMarkers;
+  /** Width of the patch of food this dot has to fit on, in the food's own units. A dot is
+   *  never made bigger than a quarter of it, so four dots can share a small face. */
+  room?: number;
 }) {
   const group = useRef<THREE.Group>(null);
   const world = useMemo(() => new THREE.Vector3(), []);
@@ -81,7 +85,8 @@ function MarkerAt({
     const g = group.current;
     if (!g?.parent) return;
     g.parent.getWorldScale(world);
-    g.scale.setScalar(MARKER_WORLD / Math.max(world.x, 1e-4));
+    const size = room ? Math.min(MARKER_WORLD, Math.max(0.5, room * world.x * 0.4)) : MARKER_WORLD;
+    g.scale.setScalar(size / Math.max(world.x, 1e-4));
   });
   return (
     <group ref={group} position={position}>
@@ -96,7 +101,8 @@ function MarkerAt({
   );
 }
 
-/** Where on a cut face each fact's marker sits: facts alternate between the halves. */
+/** Where on a cut face each fact's marker sits, as fractions of the face — only used
+ *  when the cut outline cannot be sampled. */
 const FACE_SLOTS: [number, number][][] = [
   [[0.3, 0.2], [-0.4, -0.3], [0.0, 0.5]],
   [[0.25, -0.2], [-0.4, 0.3], [0.0, -0.5]],
@@ -104,6 +110,83 @@ const FACE_SLOTS: [number, number][][] = [
 
 /** Spots across the single cut face shown on the microscope panel. */
 const SHOWCASE_SLOTS: [number, number][] = [[0.35, -0.3], [0.3, 0.35], [-0.35, 0.3], [-0.35, -0.35], [0.0, 0.0]];
+
+/**
+ * Points that really lie on the cut face. A fixed grid of positions across the face's
+ * bounding box put the dots on the lollipop's stick, or in the air beside a taco's shell,
+ * because the face is not a rectangle. This walks the actual outline instead: it tries a
+ * grid of points, keeps the ones inside the outline, and picks the dots one by one — each
+ * as far from the edge and from the dots already placed as it can be.
+ */
+function pointsOnFace(
+  outline: { y: number; z: number }[],
+  count: number,
+): { spots: [number, number][]; room: number } {
+  const none = { spots: [], room: 0 };
+  if (outline.length < 3 || count < 1) return none;
+  let yMin = Infinity, yMax = -Infinity, zMin = Infinity, zMax = -Infinity;
+  for (const p of outline) {
+    yMin = Math.min(yMin, p.y); yMax = Math.max(yMax, p.y);
+    zMin = Math.min(zMin, p.z); zMax = Math.max(zMax, p.z);
+  }
+  const inside = (y: number, z: number) => {
+    let hit = false;
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+      const a = outline[i];
+      const b = outline[j];
+      if (a.z > z !== b.z > z && y < ((b.y - a.y) * (z - a.z)) / (b.z - a.z) + a.y) hit = !hit;
+    }
+    return hit;
+  };
+  const edgeDist = (y: number, z: number) => {
+    let best = Infinity;
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+      const a = outline[i];
+      const b = outline[j];
+      const dy = b.y - a.y;
+      const dz = b.z - a.z;
+      const len2 = dy * dy + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((y - a.y) * dy + (z - a.z) * dz) / len2));
+      best = Math.min(best, Math.hypot(y - (a.y + t * dy), z - (a.z + t * dz)));
+    }
+    return best;
+  };
+
+  const N = 24;
+  const cands: { y: number; z: number; edge: number }[] = [];
+  for (let i = 0; i <= N; i++) {
+    for (let k = 0; k <= N; k++) {
+      const y = yMin + ((yMax - yMin) * i) / N;
+      const z = zMin + ((zMax - zMin) * k) / N;
+      if (inside(y, z)) cands.push({ y, z, edge: edgeDist(y, z) });
+    }
+  }
+  if (cands.length === 0) return none;
+  const reach = Math.max(...cands.map((c) => c.edge)) || 1;
+  // a thin stick or tail hangs off the main body (a lollipop's handle): dots belong on the
+  // body, so when there is room, only the thick part of the face is considered
+  const thick = cands.filter((c) => c.edge >= reach * 0.45);
+  if (thick.length >= count * 4) {
+    cands.length = 0;
+    cands.push(...thick);
+  }
+  const chosen: { y: number; z: number; edge: number }[] = [];
+  while (chosen.length < count) {
+    let best = cands[0];
+    let bestScore = -Infinity;
+    for (const c of cands) {
+      const apart = chosen.length ? Math.min(...chosen.map((q) => Math.hypot(q.y - c.y, q.z - c.z))) : reach * 2;
+      // deep inside the face first, then spread out; a dot hugging the rim is worth little
+      const score = Math.min(apart, reach * 1.6) + c.edge * 1.2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+    chosen.push(best);
+  }
+  return { spots: chosen.map((c): [number, number] => [c.y, c.z]), room: reach * 2 };
+}
 
 function FaceMarkers({
   half,
@@ -121,18 +204,15 @@ function FaceMarkers({
   const { yMin, yMax, zMin, zMax } = half.cut;
   const cy = (yMin + yMax) / 2;
   const cz = (zMin + zMax) / 2;
+  const { spots, room } = useMemo(() => pointsOnFace(half.outline, facts.length), [half.outline, facts.length]);
   return (
     <>
       {facts.map((f, i) => {
+        const on = spots[i];
         const [dy, dz] = slots[i % slots.length];
-        return (
-          <MarkerAt
-            key={f.id}
-            fact={f}
-            markers={markers}
-            position={[outward * 0.03, cy + dy * (yMax - yMin) * 0.5, cz + dz * (zMax - zMin) * 0.5]}
-          />
-        );
+        const y = on ? on[0] : cy + dy * (yMax - yMin) * 0.5;
+        const z = on ? on[1] : cz + dz * (zMax - zMin) * 0.5;
+        return <MarkerAt key={f.id} fact={f} markers={markers} room={on ? room : undefined} position={[outward * 0.03, y, z]} />;
       })}
     </>
   );
