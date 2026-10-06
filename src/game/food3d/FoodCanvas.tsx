@@ -138,9 +138,27 @@ export default function FoodCanvas({
   const cameraPos: [number, number, number] = showPedestal ? [0, 1.1, 5.2] : [0, 1.25, 5.6];
   const cameraTarget: [number, number, number] = showPedestal ? [0, -0.05, 0] : [0, 0.35, 0];
 
+  // Detect mobile or touch environment where vertical page scroll must never be hijacked
+  const isTouchDevice = typeof window !== 'undefined' && (
+    window.matchMedia?.('(pointer: coarse)').matches === true ||
+    window.matchMedia?.('(max-width: 768px)').matches === true ||
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0
+  );
+  const allowPageScroll = scrollFriendly || isTouchDevice;
+
   return (
-    <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: scrollFriendly ? 'pan-y' : 'none' }}>
-      <Canvas camera={{ position: cameraPos, fov: 46 }} dpr={[1, 1.5]}>
+    <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: allowPageScroll ? 'pan-y' : 'none' }}>
+      <Canvas
+        camera={{ position: cameraPos, fov: 46 }}
+        dpr={[1, 1.5]}
+        style={{ touchAction: allowPageScroll ? 'pan-y' : 'none', width: '100%', height: '100%' }}
+        onCreated={(state) => {
+          if (allowPageScroll) {
+            state.gl.domElement.style.touchAction = 'pan-y';
+          }
+        }}
+      >
         {/* Studio multi-light setup: instant, zero network dependencies, 60fps */}
         <ambientLight intensity={0.68} />
         <directionalLight position={[3.5, 5.2, 3.8]} intensity={1.38} />
@@ -158,14 +176,14 @@ export default function FoodCanvas({
         </CanvasErrorBoundary>
 
         <OrbitControls
-          enabled={controlsEnabled}
+          enabled={controlsEnabled && !allowPageScroll}
           target={cameraTarget}
           enablePan={false}
-          enableZoom={!scrollFriendly}
+          enableZoom={!allowPageScroll}
           minDistance={2.8}
           maxDistance={6}
-          minPolarAngle={scrollFriendly ? REST_POLAR : Math.PI / 3.2}
-          maxPolarAngle={scrollFriendly ? REST_POLAR : Math.PI / 1.6}
+          minPolarAngle={allowPageScroll ? REST_POLAR : Math.PI / 3.2}
+          maxPolarAngle={allowPageScroll ? REST_POLAR : Math.PI / 1.6}
           enableDamping
           dampingFactor={0.12}
           autoRotate={autoRotate && !interacting}

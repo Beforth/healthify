@@ -173,6 +173,7 @@ export default function Knife3D({
   };
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (disabled || e.pointerType === 'touch') return;
     e.stopPropagation();
     startDrag(e.nativeEvent.clientX, e.nativeEvent.clientY);
   };

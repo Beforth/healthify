@@ -1,7 +1,6 @@
 import { useGLTF } from '@react-three/drei';
-import { FOODS } from '../data/nutritionData';
-import { FOOD_MODELS, PREVIEW_SCANS, preloadForGame } from '../game/food3d/foodRegistry';
-import { warmPreviewCache } from '../game/food3d/PreviewRenderer';
+import { preloadForGame } from '../game/food3d/foodRegistry';
+import { isScrolling } from '../game/food3d/PreviewRenderer';
 
 export interface PreloadProgress {
   loaded: number;
@@ -18,13 +17,6 @@ export const PRIORITY_MODELS = [
   { id: 'sweet-potato', name: 'Sweet Potato', url: 'models/sweet-potato.glb', emoji: '🍠', action: 'Roasting sweet potato...' },
   { id: 'burger', name: 'Burger', url: 'models/burger.glb', emoji: '🍔', action: 'Grilling 3D burger...' },
 ];
-
-/** Food IDs from FOODS[], in page order, that have a 3D preview (model or scan). */
-function foodIdsWithPreviews(): string[] {
-  return FOODS
-    .map((f) => f.id)
-    .filter((id) => Boolean(FOOD_MODELS[id] ?? PREVIEW_SCANS[id]));
-}
 
 class ModelPreloader {
   private ready = false;
@@ -125,21 +117,17 @@ class ModelPreloader {
     if (this.backgroundStarted) return;
     this.backgroundStarted = true;
 
-    const ids = foodIdsWithPreviews();
+    // Do NOT queue all ~60 foods at once — visible cards are handled on demand by IntersectionObserver.
+    // Warm priority starter models only, and pause any idle downloads during scrolling or gameplay.
+    const ids = PRIORITY_MODELS.map((m) => m.id);
 
-    // 1. Warm the thumbnail PreviewCache (builds Three.js geometry for the picker cards).
-    warmPreviewCache(ids);
-
-    // 2. Also warm drei's useGLTF Suspense cache, 1 food per idle slot.
-    //    Trickling 1 model at a time ensures the network is never saturated,
-    //    leaving 100% bandwidth available whenever the user navigates into a game.
     let offset = 0;
     const scheduleNext = () => {
       if (offset >= ids.length) return;
       const cb = () => {
-        // Pause during active gameplay so the current game food has full bandwidth
-        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/play')) {
-          setTimeout(scheduleNext, 2000);
+        // Pause while scrolling or during active gameplay so UI is 100% fluid
+        if (isScrolling() || (typeof window !== 'undefined' && window.location.pathname.startsWith('/play'))) {
+          setTimeout(scheduleNext, 500);
           return;
         }
         const nextId = ids[offset++];
@@ -147,9 +135,10 @@ class ModelPreloader {
         scheduleNext();
       };
       if ('requestIdleCallback' in window) {
-        (window as Window).requestIdleCallback(cb, { timeout: 4000 });
+        // No timeout parameter — never fire while user is busy or scrolling
+        (window as Window).requestIdleCallback(cb);
       } else {
-        setTimeout(cb, 600);
+        setTimeout(cb, 1500);
       }
     };
     scheduleNext();

@@ -15,6 +15,21 @@ const MAX_VISIBLE_CONCURRENT = 4;
 const MAX_WARMUP_CONCURRENT = 1;
 const ENVIRONMENT = 'https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/lebombo_1k.hdr';
 
+let isUserScrolling = false;
+let scrollEndTimer = 0;
+if (typeof window !== 'undefined') {
+  const onScroll = () => {
+    isUserScrolling = true;
+    clearTimeout(scrollEndTimer);
+    scrollEndTimer = window.setTimeout(() => {
+      isUserScrolling = false;
+      renderer?.wake();
+    }, 150);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('touchmove', onScroll, { passive: true });
+}
+
 interface View {
   id: string;
   canvas: HTMLCanvasElement;
@@ -249,17 +264,35 @@ class PreviewRenderer {
     if (this.posters.size > MAX_POSTERS) this.posters.delete(this.posters.keys().next().value!);
   }
 
-  private wake() {
+  private buildTimer = 0;
+
+  wake() {
     if (this.disposed || this.lost || document.hidden || !this.visibleViews().length) return;
     if (!this.frame) this.frame = requestAnimationFrame(this.tick);
-    this.buildNext();
+
+    // Debounce builds off the scroll path so swiping is 100% smooth and hitch-free
+    clearTimeout(this.buildTimer);
+    if (isUserScrolling) {
+      this.buildTimer = setTimeout(() => this.wake(), 180) as unknown as number;
+      return;
+    }
+    const win = typeof window !== 'undefined' ? (window as unknown as { requestIdleCallback?: (cb: () => void) => void }) : {};
+    if (typeof win.requestIdleCallback === 'function') {
+      win.requestIdleCallback(() => {
+        if (!isUserScrolling && !this.disposed) this.buildNext();
+      });
+    } else {
+      this.buildTimer = setTimeout(() => {
+        if (!isUserScrolling && !this.disposed) this.buildNext();
+      }, 80) as unknown as number;
+    }
   }
 
   /** Start builds for all visible uncached views, giving them top priority.
    *  GLB models run up to MAX_VISIBLE_CONCURRENT in parallel.
    *  Procedural models serialize through the shared Fiber root. */
   private buildNext() {
-    if (this.disposed || this.lost || document.hidden) return;
+    if (this.disposed || this.lost || document.hidden || isUserScrolling) return;
     for (const view of this.visibleViews()) {
       if (this.cache.has(view.id) || this.failed.has(view.id) || this.buildingIds.has(view.id)) continue;
       const scan = this.isScan(view.id);
@@ -325,22 +358,27 @@ class PreviewRenderer {
     if (this.warmupQueue.length === 0 || this.disposed) return;
     const run = (deadline?: IdleDeadline) => {
       if (this.disposed) return;
-      if (deadline && deadline.timeRemaining() < 20 && !deadline.didTimeout) {
-        if ('requestIdleCallback' in window) (window as Window).requestIdleCallback(run, { timeout: 2000 });
+      if (isUserScrolling) {
+        setTimeout(() => this.scheduleWarmup(), 400);
+        return;
+      }
+      if (deadline && deadline.timeRemaining() < 25 && !deadline.didTimeout) {
+        if ('requestIdleCallback' in window) (window as Window).requestIdleCallback(run);
         return;
       }
       this.drainWarmupQueue();
     };
     if ('requestIdleCallback' in window) {
-      (window as Window).requestIdleCallback(run, { timeout: 2000 });
+      // No timeout parameter — never force execution while the user is busy scrolling
+      (window as Window).requestIdleCallback(run);
     } else {
-      setTimeout(() => this.drainWarmupQueue(), 300);
+      setTimeout(() => this.drainWarmupQueue(), 1200);
     }
   }
 
   private drainWarmupQueue() {
-    // If visible cards are waiting or user is in active gameplay, don't warm up
-    if (this.hasPendingVisible() || (typeof window !== 'undefined' && window.location.pathname.startsWith('/play'))) {
+    // If user is scrolling, visible cards are waiting, or user is in active gameplay, don't warm up
+    if (isUserScrolling || this.hasPendingVisible() || (typeof window !== 'undefined' && window.location.pathname.startsWith('/play'))) {
       return;
     }
     // Remove anything already cached or in flight.
@@ -476,6 +514,10 @@ export function attachPreview(id: string, canvas: HTMLCanvasElement, scale: numb
 export function warmPreviewCache(ids: string[]) {
   renderer ??= new PreviewRenderer();
   renderer.warmCache(ids);
+}
+
+export function isScrolling(): boolean {
+  return isUserScrolling;
 }
 
 // Opt-in production diagnostics; no counters or geometry references enter React state.

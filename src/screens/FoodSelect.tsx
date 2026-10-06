@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { usePlayerStore } from '../store/playerStore';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Star, Leaf, Candy, Search, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
@@ -8,7 +8,6 @@ import { FOODS } from '../data/nutritionData';
 import { nextRequiredCategory, useGameStore } from '../store/gameStore';
 import Breadcrumbs from '../components/Breadcrumbs';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
-import { modelPreloader } from '../services/modelPreloader';
 import { isTouchOnly } from '../lib/touch';
 import { preloadForGame } from '../game/food3d/foodRegistry';
 
@@ -25,14 +24,6 @@ export default function FoodSelect() {
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'healthy' | 'junk'>('all');
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
-    // Defer background warming slightly so initial scroll/paint has 100% of the CPU/GPU
-    const timer = setTimeout(() => {
-      modelPreloader.startBackgroundPreloading();
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, []);
-
   const required = nextRequiredCategory(lastCategoryPlayed);
   const visibleFoods = FOODS.filter((f) => {
     const matchesQuery = f.name.toLowerCase().includes(query.trim().toLowerCase());
@@ -42,25 +33,6 @@ export default function FoodSelect() {
   const totalPages = Math.max(1, Math.ceil(visibleFoods.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-
-  // Stagger preloading of drei's game models gently after initial page settling
-  // so scrolling is never interrupted by heavy GLTF buffer parsing.
-  useEffect(() => {
-    let idx = 0;
-    const delayTimer = setTimeout(() => {
-      const timer = setInterval(() => {
-        if (idx < pageItems.length) {
-          preloadForGame(pageItems[idx].id);
-          idx++;
-        } else {
-          clearInterval(timer);
-        }
-      }, 800);
-      return () => clearInterval(timer);
-    }, 1200);
-    return () => clearTimeout(delayTimer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [safePage, categoryFilter, query]);
 
 
   return (

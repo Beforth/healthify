@@ -12,7 +12,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import Celebration from '../components/Celebration';
 import BodyEffect from '../components/BodyEffect';
 import FoodCanvas, { BOARD_TOP_Y } from '../game/food3d/FoodCanvas';
-import MoveToggle, { isTouchOnly } from '../game/food3d/MoveToggle';
+import { isTouchOnly } from '../lib/touch';
 import FitScale from '../game/food3d/FitScale';
 import Knife3D from '../game/food3d/Knife3D';
 import SliceImpact from '../game/food3d/SliceImpact';
@@ -59,15 +59,19 @@ export default function GameScreen() {
   const isCuttingAuto = useRef(false);
 
   const food = foodId ? getFoodById(foodId) : undefined;
-  // On a touchscreen a finger on the 3D stage would otherwise own every swipe and the page
-  // could not be scrolled past it. Touch devices let the page scroll and cut with a tap.
-  const [touchOnly] = useState(isTouchOnly);
-  // "Move food" hands the finger to the 3D scene until it is switched off again
-  const [moveMode, setMoveMode] = useState(false);
+  const isTouchDevice = () =>
+    isTouchOnly() ||
+    (typeof window !== 'undefined' &&
+      (('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 768));
+  const [touchOnly] = useState(isTouchDevice);
 
   useEffect(() => {
     if (!food) navigate('/foods', { replace: true });
   }, [food, navigate]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [gameStep]);
 
   useEffect(() => {
     if (!food) return;
@@ -484,7 +488,6 @@ export default function GameScreen() {
                   marginBottom: 4,
                 }}
               >
-                {FoodModel && touchOnly && <MoveToggle on={moveMode} onChange={setMoveMode} />}
                 {FoodModel ? (
                   <FoodCanvas
                     height="clamp(360px, 54vh, 600px)"
@@ -492,7 +495,7 @@ export default function GameScreen() {
                     showPedestal
                     autoRotate={false}
                     controlsEnabled={false}
-                    scrollFriendly={touchOnly && !moveMode}
+                    scrollFriendly={touchOnly}
                   >
                     {/* Only the food spins in place when dragged — the knife and pedestal
                         never move, since the camera itself stays fixed the whole time. */}
@@ -639,6 +642,27 @@ export default function GameScreen() {
 
               <div style={{ marginBottom: 20 }}>
                 {CrossSection ? <CrossSection /> : <FlatCrossSection foodId={food.id} />}
+              </div>
+
+              <div style={{ margin: '16px 0 24px', display: 'flex', justifyContent: 'center' }}>
+                <motion.button
+                  className="btn"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    background: '#1c6b48',
+                    color: '#ffffff',
+                    borderRadius: 999,
+                    padding: '13px 36px',
+                    fontSize: '1rem',
+                    fontWeight: 800,
+                    boxShadow: '0 8px 22px rgba(28, 107, 72, 0.35)',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => advanceStep('quiz')}
+                >
+                  Answer a Question ➜
+                </motion.button>
               </div>
 
               <div

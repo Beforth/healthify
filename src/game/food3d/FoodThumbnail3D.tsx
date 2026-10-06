@@ -54,13 +54,22 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
   if (!hasModel) return <FoodIcon id={foodId} size={size} />;
 
   return (
-    <div style={{ position: 'relative', width: size, height: size, margin: '0 auto', touchAction: 'pan-y' }}>
+    <div
+      style={{
+        position: 'relative',
+        width: size,
+        height: size,
+        margin: '0 auto',
+        touchAction: 'pan-y',
+        pointerEvents: isTouchOrCoarse ? 'none' : 'auto',
+      }}
+    >
       {/* Instant 2D placeholder backdrop: zero pop-in, zero blank frames */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          display: 'flex',
+          display: ready ? 'none' : 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           opacity: ready ? 0 : 1,

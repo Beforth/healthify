@@ -8,11 +8,20 @@ import * as THREE from 'three';
  *  meshes) because every food model already has its own onPointerDown for a
  *  little squish effect, and that calls stopPropagation before it can bubble
  *  up to a wrapping group's handler. */
-export default function DragRotate({ children, sensitivity = 0.01 }: { children: ReactNode; sensitivity?: number }) {
+export default function DragRotate({
+  children,
+  sensitivity = 0.01,
+  enabled = true,
+}: {
+  children: ReactNode;
+  sensitivity?: number;
+  enabled?: boolean;
+}) {
   const group = useRef<THREE.Group>(null);
   const last = useRef({ x: 0, y: 0 });
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (!enabled || e.pointerType === 'touch') return;
     e.stopPropagation();
     last.current = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
 
@@ -35,10 +44,12 @@ export default function DragRotate({ children, sensitivity = 0.01 }: { children:
 
   return (
     <>
-      <mesh visible={false} position={[0, 0.3, 1.5]} onPointerDown={onPointerDown}>
-        <planeGeometry args={[3.4, 3.4]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
+      {enabled && (
+        <mesh visible={false} position={[0, 0.3, 1.5]} onPointerDown={onPointerDown}>
+          <planeGeometry args={[3.4, 3.4]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      )}
       <group ref={group}>{children}</group>
     </>
   );
