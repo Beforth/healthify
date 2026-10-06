@@ -166,6 +166,7 @@ function Face({ x, y, r, ink, delay }: { x: number; y: number; r: number; ink: s
           rx={eye * 0.8}
           ry={eye}
           fill={ink}
+          initial={{ ry: eye }}
           // the blink is what makes a polygon read as a creature
           animate={{ ry: [eye, eye, eye * 0.13, eye] }}
           transition={{ duration: 4.2, repeat: Infinity, delay, times: [0, 0.82, 0.87, 0.92] }}

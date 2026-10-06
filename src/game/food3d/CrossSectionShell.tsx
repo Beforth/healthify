@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Hand } from 'lucide-react';
 import FoodCanvas from './FoodCanvas';
 import KeepInView from './KeepInView';
+import FitScale from './FitScale';
 import CellView, { type MicroVariant } from '../micro/CellView';
 import type { MicroSpec } from '../micro/microStructures';
 
@@ -38,6 +39,10 @@ interface CrossSectionShellProps {
    *  themselves here instead. */
   panelTitle?: string;
   hasDots?: boolean;
+  /** Fits and centres whatever `scene` draws to the panel. On by default — hand-built
+   *  scenes were each framed by eye and several ended up tiny or off to one side. A
+   *  scene that already fits itself turns it off. */
+  autoFit?: boolean;
 }
 
 function PanelTitle({ children }: { children: ReactNode }) {
@@ -72,6 +77,7 @@ export default function CrossSectionShell({
   flatView,
   panelTitle,
   hasDots,
+  autoFit = true,
 }: CrossSectionShellProps) {
   // Deliberately starts empty. Pre-selecting a fact used to suppress the one line
   // of text that tells a child the thing is interactive at all.
@@ -98,7 +104,7 @@ export default function CrossSectionShell({
           style={{
             position: 'relative',
             flex: '1 1 380px',
-            minWidth: 300,
+            minWidth: 'min(300px, 100%)',
             borderRadius: 28,
             overflow: 'hidden',
             background: 'radial-gradient(circle, #f4fff7 0%, #e3faec 100%)',
@@ -110,13 +116,15 @@ export default function CrossSectionShell({
           {scene ? (
             // No auto-rotate: the cut face should stay facing the viewer. Controls stay on
             // so they can still spin it by hand.
-            <FoodCanvas height={420} width="100%" autoRotate={false} controlsEnabled>
-              <KeepInView>{scene(active, setActive)}</KeepInView>
+            <FoodCanvas height="clamp(300px, 70vw, 420px)" width="100%" autoRotate={false} controlsEnabled scrollFriendly>
+              <KeepInView>
+                {autoFit ? <FitScale live target={3.3}>{scene(active, setActive)}</FitScale> : scene(active, setActive)}
+              </KeepInView>
             </FoodCanvas>
           ) : (
             <div
               style={{
-                height: 420,
+                height: 'clamp(300px, 70vw, 420px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -170,7 +178,7 @@ export default function CrossSectionShell({
           style={{
             position: 'relative',
             flex: '1 1 380px',
-            minWidth: 300,
+            minWidth: 'min(300px, 100%)',
             borderRadius: 28,
             overflow: 'hidden',
             background: 'radial-gradient(circle, #f7fdf9 0%, #e9f6ee 100%)',

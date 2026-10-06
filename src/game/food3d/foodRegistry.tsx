@@ -27,20 +27,19 @@ import BroccoliCrossSection3D from './BroccoliCrossSection3D';
 import PeanutCrossSection3D from './PeanutCrossSection3D';
 import SoftDrinkCrossSection3D from './SoftDrinkCrossSection3D';
 import PotatoChipCrossSection3D from './PotatoChipCrossSection3D';
-import SweetCornCrossSection3D from './SweetCornCrossSection3D';
-import LollipopCrossSection3D from './LollipopCrossSection3D';
-import IceCreamCrossSection3D from './IceCreamCrossSection3D';
 import BurgerModel from './BurgerModel';
 import BurgerCrossSection3D from './BurgerCrossSection3D';
 import MilkModel from './MilkModel';
 import MilkCrossSection3D from './MilkCrossSection3D';
 import { DEFAULT_TARGET } from './FitScale';
-import { scannedFood, type ScannedFoodConfig } from './ScannedFoodModel';
+import { scannedFood, type ScannedFoodConfig, type FoodMarkers } from './ScannedFoodModel';
 
 type FoodModel = ComponentType<{
   cutProgressRef: MutableRefObject<number>;
   cutAngle?: number;
   stage?: 'picker' | 'cut';
+  showcase?: boolean;
+  markers?: FoodMarkers;
 }>;
 
 /** Long roots/pods/scans that sit with their length down z get a quarter turn so the
@@ -85,12 +84,12 @@ export const NO_CUT_FOODS = new Set([
  *  — a scan is only a shell — and follow the real food's inside where one is visible. */
 const SCANNED: Record<string, ScannedFoodConfig> = {
   amla: { url: 'models/amla.glb', tilt: STAND, rim: '#6f9e4f', flesh: '#c9e0a0', heart: '#e8f0d0' },
-  bajra: { url: 'models/bajra.glb', tilt: [0.25, 0.2, 0], rim: '#c9b080', flesh: '#e8d9b0', heart: '#f2e8cc', noCut: true },
+  bajra: { url: 'models/bajra.glb', tilt: [0.25, 0.2, 0], rim: '#c9b080', flesh: '#e8d9b0', heart: '#f2e8cc', bowlBelow: 0.82, bowlColor: '#3b7ea1', noCut: true },
   beetroot: { url: 'models/beetroot.glb', tilt: STAND, rim: '#7a1f3d', flesh: '#c0263f', heart: '#e04a5f' },
-  'urad-dal': { url: 'models/black-gram.glb', tilt: [0.25, 0.2, 0], rim: '#2e2418', flesh: '#e8dcc0', heart: '#f5eedd', noCut: true },
+  'urad-dal': { url: 'models/black-gram.glb', tilt: [0.25, 0.2, 0], rim: '#2e2418', flesh: '#e8dcc0', heart: '#f5eedd', bowlBelow: 0.84, bowlColor: '#e8e2d0', noCut: true },
   lauki: { url: 'models/bottel gourd.glb', rotate: Z_CUT, tilt: LYING, rim: '#9ec89a', flesh: '#e0f0dc', heart: '#f2f9f0' },
-  bread: { url: 'models/bread.glb', rotate: Z_CUT, tilt: LYING, rim: '#a06a3a', flesh: '#f0e0c0', heart: '#faf0d8' },
-  'brown-rice': { url: 'models/brown-rice.glb', rotate: Z_CUT, tilt: [0.25, 0.2, 0], rim: '#8a6a40', flesh: '#d0b888', heart: '#e8d8b0', noCut: true },
+  bread: { url: 'models/bread.glb', rotate: Z_CUT, tilt: LYING, rim: '#a06a3a', flesh: '#f0e0c0', heart: '#faf0d8', keepLargest: true },
+  'brown-rice': { url: 'models/brown-rice.glb', rotate: Z_CUT, tilt: [0.25, 0.2, 0], rim: '#8a6a40', flesh: '#d0b888', heart: '#e8d8b0', bowlBelow: 0.78, bowlColor: '#3f8f8a', noCut: true },
   'bubble-tea': {
     url: 'models/bubble-tea.glb',
     tilt: [0.04, 0.3, 0],
@@ -125,9 +124,9 @@ const SCANNED: Record<string, ScannedFoodConfig> = {
   },
   capsicum: { url: 'models/capsicum.glb', tilt: STAND, rim: '#3a8a3a', flesh: '#8fd06a', heart: '#d8f0b0' },
   cauliflower: { url: 'models/cauliflower.glb', tilt: STAND, rim: '#d8e0c0', flesh: '#f5f5e8', heart: '#ffffff' },
-  'chana-dal': { url: 'models/chana-daal.glb', tilt: [0.25, 0.2, 0], rim: '#d9a840', flesh: '#f0d878', heart: '#f8eab0', noCut: true },
+  'chana-dal': { url: 'models/chana-daal.glb', tilt: [0.25, 0.2, 0], rim: '#d9a840', flesh: '#f0d878', heart: '#f8eab0', bowlBelow: 0.68, bowlColor: '#3b6fb0', noCut: true },
   'cheese-fries': { url: 'models/cheese-fries.glb', tilt: [0.25, 0.2, 0], rim: '#d9a040', flesh: '#f5d878', heart: '#ffeaa0', noCut: true },
-  cucumber: { url: 'models/cucumber.glb', rotate: Z_CUT, tilt: LYING, rim: '#4a8a40', flesh: '#c8e8b0', heart: '#e8f5d0' },
+  cucumber: { url: 'models/cucumber.glb', rotate: Z_CUT, tilt: LYING, rim: '#4a8a40', flesh: '#c8e8b0', heart: '#e8f5d0', keepLargest: true },
   cupcake: {
     url: 'models/cupcake.glb',
     tilt: STAND,
@@ -137,11 +136,11 @@ const SCANNED: Record<string, ScannedFoodConfig> = {
     roughness: 0.52,
     envMapIntensity: 1.1,
   },
-  curd: { url: 'models/curd.glb', rotate: Z_CUT, tilt: [0.3, 0.2, 0], rim: '#e8e8e0', flesh: '#f8f8f0', heart: '#ffffff', noCut: true },
+  curd: { url: 'models/curd.glb', rotate: Z_CUT, tilt: [0.3, 0.2, 0], rim: '#e8e8e0', flesh: '#f8f8f0', heart: '#ffffff', bowlBelow: 0.62, bowlColor: '#d8584a', noCut: true },
   drumstick: { url: 'models/drumstick.glb', rotate: Z_CUT, tilt: LYING, rim: '#5a8a3a', flesh: '#b8d888', heart: '#e0efc0' },
   garlic: { url: 'models/garlic.glb', rotate: Z_CUT, tilt: LYING, rim: '#e8dcc0', flesh: '#faf5e8', heart: '#ffffff' },
   'green-beans': { url: 'models/green-beans.glb', tilt: STAND, rim: '#3a8a3a', flesh: '#8fd06a', heart: '#d0efb0' },
-  'moong-dal': { url: 'models/green-gram.glb', tilt: [0.25, 0.2, 0], rim: '#6a9a4a', flesh: '#d8e8b0', heart: '#f0f5d8', noCut: true },
+  'moong-dal': { url: 'models/green-gram.glb', tilt: [0.25, 0.2, 0], rim: '#6a9a4a', flesh: '#d8e8b0', heart: '#f0f5d8', bowlBelow: 0.66, bowlColor: '#e07b39', noCut: true },
   'green-peas': { url: 'models/green-peas.glb', rotate: Z_CUT, tilt: [0.25, 0.2, 0], rim: '#4a9a40', flesh: '#90d870', heart: '#d0f0b0', noCut: true },
   guava: { url: 'models/guava.glb', tilt: STAND, rim: '#7aa040', flesh: '#f5c8b0', heart: '#f8e0c0' },
   'hot-dog': {
@@ -155,16 +154,17 @@ const SCANNED: Record<string, ScannedFoodConfig> = {
     envMapIntensity: 1.1,
   },
   'ice-cream': { url: 'models/ice-creame.glb', tilt: STAND, rim: '#d9a860', flesh: '#f5e0c0', heart: '#ffe8d0' },
-  rajma: { url: 'models/kidney_beans.glb', tilt: [0.25, 0.2, 0], rim: '#7a2a20', flesh: '#e8c8a0', heart: '#f5e0c0', noCut: true },
+  rajma: { url: 'models/kidney_beans.glb', tilt: [0.25, 0.2, 0], rim: '#7a2a20', flesh: '#e8c8a0', heart: '#f5e0c0', bowlBelow: 0.72, bowlColor: '#e8e0cc', noCut: true },
   kiwi: { url: 'models/kiwi.glb', rotate: Z_CUT, tilt: LYING, rim: '#6a5030', flesh: '#90d060', heart: '#f0f8d0' },
   lollipop: { url: 'models/lollipop.glb', rotate: Z_CUT, tilt: LYING, rim: '#ff6a9a', flesh: '#ff9ec0', heart: '#ffd0e0' },
-  'masoor-dal': { url: 'models/masoor-daal.glb', tilt: [0.25, 0.2, 0], rim: '#d97030', flesh: '#f0a860', heart: '#f8d0a0', noCut: true },
+  'masoor-dal': { url: 'models/masoor-daal.glb', tilt: [0.25, 0.2, 0], rim: '#d97030', flesh: '#f0a860', heart: '#f8d0a0', bowlBelow: 0.76, bowlColor: '#3a8f6b', noCut: true },
   oats: {
     url: 'models/oats.glb',
     tilt: [0.35, 0.2, 0],
     rim: '#d0b888',
     flesh: '#ebd8b0',
     heart: '#f5e8cc',
+    bowlBelow: 0.76, bowlColor: '#4a7fb5',
     noCut: true,
     roughness: 0.58,
     envMapIntensity: 1.05,
@@ -185,8 +185,8 @@ const SCANNED: Record<string, ScannedFoodConfig> = {
   pomegranate: { url: 'models/pomegranate.glb', rotate: Z_CUT, tilt: LYING, rim: '#c02040', flesh: '#e04060', heart: '#f08090' },
   pumpkin: { url: 'models/pumpckin.glb', tilt: STAND, rim: '#d98030', flesh: '#f5b060', heart: '#ffcc90' },
   radish: { url: 'models/radish.glb', tilt: STAND, rim: '#d04050', flesh: '#f8f0e8', heart: '#ffffff' },
-  ragi: { url: 'models/ragi.glb', tilt: [0.25, 0.2, 0], rim: '#8a4a30', flesh: '#c08060', heart: '#d8a888', noCut: true },
-  soybeans: { url: 'models/soyabean.glb', tilt: [0.25, 0.2, 0], rim: '#d0c080', flesh: '#f0e8c0', heart: '#faf5e0', noCut: true },
+  ragi: { url: 'models/ragi.glb', tilt: [0.25, 0.2, 0], rim: '#8a4a30', flesh: '#c08060', heart: '#d8a888', bowlBelow: 0.6, bowlColor: '#4aa3a0', noCut: true },
+  soybeans: { url: 'models/soyabean.glb', tilt: [0.25, 0.2, 0], rim: '#d0c080', flesh: '#f0e8c0', heart: '#faf5e0', bowlBelow: 0.74, bowlColor: '#c24a4a', noCut: true },
   spinach: {
     url: 'models/spinach.glb',
     tilt: [0.22, 0.3, 0],
@@ -200,7 +200,7 @@ const SCANNED: Record<string, ScannedFoodConfig> = {
   'sweet-lime': { url: 'models/sweet-lime.glb', tilt: STAND, rim: '#8ab040', flesh: '#e8f0c0', heart: '#f8f8e0' },
   taco: { url: 'models/taco.glb', tilt: STAND, rim: '#e0a050', flesh: '#a85838', heart: '#f5e0a0' },
   tomato: { url: 'models/tomato.glb', tilt: STAND, rim: '#c02030', flesh: '#f05060', heart: '#f8a0a0' },
-  'toor-dal': { url: 'models/toor-daal.glb', tilt: [0.25, 0.2, 0], rim: '#d9a040', flesh: '#f0d070', heart: '#f8e8a0', noCut: true },
+  'toor-dal': { url: 'models/toor-daal.glb', tilt: [0.25, 0.2, 0], rim: '#d9a040', flesh: '#f0d070', heart: '#f8e8a0', bowlBelow: 0.63, bowlColor: '#8c5bb0', noCut: true },
   waffle: {
     url: 'models/waffles.glb',
     tilt: [0.22, 0.25, 0],
@@ -221,12 +221,13 @@ const SCANNED: Record<string, ScannedFoodConfig> = {
     envMapIntensity: 1.05,
   },
   watermelon: { url: 'models/watermelon.glb', tilt: STAND, rim: '#2e7a30', flesh: '#f04050', heart: '#f89090' },
+  corn: { url: 'models/sweet corn.glb', rotate: Z_CUT, tilt: [0.1, 0.4, 0.65], rim: '#d9a630', flesh: '#f5dc7a', heart: '#fff3b8' },
   okra: { url: 'models/bhindi.glb', rotate: Z_CUT, tilt: LYING, rim: '#4a7a3a', flesh: '#b5d98a', heart: '#e0efc0' },
 };
 
 /** Whole scans for thumbnails: never split/triangulate a model just to show it whole.
  * Kept beside the gameplay registry so paths and display poses stay in sync. */
-export const PREVIEW_SCANS: Record<string, Pick<ScannedFoodConfig, 'url' | 'rotate' | 'tilt'>> = {
+export const PREVIEW_SCANS: Record<string, Pick<ScannedFoodConfig, 'url' | 'rotate' | 'tilt' | 'bowlBelow' | 'bowlColor' | 'keepLargest'>> = {
   ...SCANNED,
   'chocolate-bar': { url: 'models/chocolate.glb', tilt: [0.38, 0.22, 0] },
   pineapple: { url: 'models/pineapple.glb', tilt: [0.08, 0.3, 0] },
@@ -235,7 +236,7 @@ export const PREVIEW_SCANS: Record<string, Pick<ScannedFoodConfig, 'url' | 'rota
   'sweet-potato': { url: 'models/sweet-potato.glb', rotate: Z_CUT, tilt: [0.05, 0, 0.72] },
   peanuts: { url: 'models/peanut.glb', rotate: Z_CUT, tilt: [0.28, 0.35, 0.7] },
   'soft-drink': { url: 'models/soft-drink.glb', tilt: [0.05, 0.3, 0] },
-  'potato-chips': { url: 'models/potato-chips.glb', rotate: [Math.PI / 2, 0, 0], tilt: [0.42, 0.2, 0] },
+  'potato-chips': { url: 'models/potato-chips.glb', rotate: [-Math.PI / 2, 0, 0], tilt: [0.42, 0.2, 0] },
   corn: { url: 'models/sweet corn.glb', rotate: Z_CUT, tilt: [0.1, 0.4, 0.65] },
   burger: { url: 'models/burger.glb', tilt: [0.1, 0.3, 0] },
   milk: { url: 'models/milk.glb', tilt: [0.06, 0.3, 0] },
@@ -285,9 +286,6 @@ export const FOOD_CROSS_SECTIONS: Record<string, ComponentType> = {
   peanuts: PeanutCrossSection3D,
   'soft-drink': SoftDrinkCrossSection3D,
   'potato-chips': PotatoChipCrossSection3D,
-  corn: SweetCornCrossSection3D,
-  lollipop: LollipopCrossSection3D,
-  'ice-cream': IceCreamCrossSection3D,
   burger: BurgerCrossSection3D,
   milk: MilkCrossSection3D,
 };

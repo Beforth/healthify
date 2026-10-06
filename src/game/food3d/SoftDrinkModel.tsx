@@ -21,11 +21,6 @@ const LID_SILVER = '#c9d0d1';
 const LID_RING = '#9aa3a4';
 const TAB_COLOUR = '#dfe5e6';
 
-/** How long after the can appears before the tab lifts, and how long it takes.
- *  A can that springs open the instant it is on screen reads as a broken prop;
- *  the delay is what makes it feel like someone opened it. */
-const OPEN_DELAY = 0.7;
-const OPEN_TIME = 0.5;
 
 /**
  * The lid, in two real pieces: the disc it is pressed into, and the tab that
@@ -68,13 +63,6 @@ function CanLid({ openRef }: { openRef: MutableRefObject<number> }) {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* the opening, dark because what is under a can's lid is the inside of
-          the can — visible only once the tab has actually lifted */}
-      <mesh position={[0, -0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[LID_RADIUS * 0.55, 32]} />
-        <meshStandardMaterial color="#12181a" roughness={0.9} />
-      </mesh>
-
       {/* the tab, hinged at its front edge and standing up as it opens */}
       <group ref={pivot} position={[0, 0.004, LID_RADIUS * 0.3]}>
         <mesh position={[0, 0, -LID_RADIUS * 0.3]}>
@@ -135,21 +123,13 @@ export default function SoftDrinkModel({
 }) {
   const outer = useRef<THREE.Group>(null);
   const squish = useRef(0);
-  /** 0 while the can is still shut, 1 once the tab has lifted. */
+  /** The tab's lift: 0 = shut. Nothing drives it any more, so the lid stays closed. */
   const open = useRef(0);
   const [hovered, setHovered] = useState(false);
 
   useFrame((state, delta) => {
-    // The tab opens once, shortly after the can lands, and stays open. It is not
-    // driven by `cutProgressRef`: a can is not something you slice, so there is no
-    // cut to react to, and it should behave the same on the play screen and the
-    // picker. A can that sprang open the instant it appeared would read as a
-    // broken prop, so it waits — and once open it never shuts again.
-    const t = state.clock.elapsedTime - OPEN_DELAY;
-    if (open.current < 1) {
-      open.current = t <= 0 ? 0 : Math.min(1, t / OPEN_TIME);
-    }
-
+    // The can stays shut: a closed lid with its tab lying flat. (It used to flip the
+    // tab up after a moment and leave a black hole in the top, which read as broken.)
     squish.current *= Math.exp(-delta * 6);
     if (!outer.current) return;
     const wobble = Math.sin(state.clock.elapsedTime * 14) * squish.current;

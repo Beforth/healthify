@@ -43,10 +43,10 @@ const FACTS: CrossSectionFact[] = [
  *  is a thin band about 0.23 tall and 1.0 wide, and x is a hair positive so
  *  each dot floats just proud of the flat break. */
 const SPOTS: Record<string, [number, number, number]> = {
-  cut: [0.02, 0, 0.3],
-  fat: [0.02, -0.05, -0.15],
-  salt: [0.02, 0.05, 0.02],
-  carb: [0.02, 0, -0.4],
+  cut: [0.02, 0, -0.3],
+  fat: [0.02, -0.05, 0.15],
+  salt: [0.02, 0.05, -0.02],
+  carb: [0.02, 0, 0.4],
 };
 
 function Scene({
