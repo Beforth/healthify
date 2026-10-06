@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, BatteryLow, Frown, Timer, Smile, Sparkles } from 'lucide-react';
 import {
@@ -9,7 +10,8 @@ import {
   type TooltipContentProps,
   type XAxisTickContentProps,
 } from 'recharts';
-import type { FoodCategory } from '../data/nutritionData';
+import type { FoodCategory, FoodItem } from '../data/nutritionData';
+import { crashes, energyCurve } from '../lib/energyCurve';
 
 /**
  * "So what?" — the part of the brief the game was missing.
@@ -114,14 +116,19 @@ function article(name: string) {
 export default function BodyEffect({
   category,
   foodName,
+  food,
 }: {
   category: FoodCategory;
   foodName: string;
+  /** Its own numbers draw its own curve; without it the canned shape for the category is used. */
+  food?: FoodItem;
 }) {
   const junk = category === 'junk';
-  const data = junk ? JUNK_CURVE : HEALTHY_CURVE;
-  const beats = junk ? JUNK_BEATS : HEALTHY_BEATS;
-  const gradientId = junk ? 'energyFillJunk' : 'energyFillHealthy';
+  const own = useMemo(() => (food ? energyCurve(food) : null), [food]);
+  const data = own ?? (junk ? JUNK_CURVE : HEALTHY_CURVE);
+  const spikes = own ? crashes(own) : junk;
+  const beats = spikes ? JUNK_BEATS : HEALTHY_BEATS;
+  const gradientId = `energyFill-${food?.id ?? (junk ? 'junk' : 'healthy')}`;
 
   const line = junk ? '#ef4444' : '#16a34a';
   const panel = junk ? '#fff5f5' : '#f3fdf7';

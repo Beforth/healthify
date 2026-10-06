@@ -141,7 +141,7 @@ export default function Breadcrumbs({
           }}
         >
           <Home size={15} strokeWidth={2.4} color={dark ? '#ffffff' : 'var(--green-dark)'} />
-          <span>{homeLabel}</span>
+          <span className="crumb-home-label">{homeLabel}</span>
         </motion.button>
       )}
 

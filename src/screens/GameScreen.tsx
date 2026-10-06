@@ -58,6 +58,11 @@ export default function GameScreen() {
   const isCuttingAuto = useRef(false);
 
   const food = foodId ? getFoodById(foodId) : undefined;
+  // On a touchscreen a finger on the 3D stage would otherwise own every swipe and the page
+  // could not be scrolled past it. Touch devices let the page scroll and cut with a tap.
+  const [touchOnly] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true,
+  );
 
   useEffect(() => {
     if (!food) navigate('/foods', { replace: true });
@@ -254,7 +259,7 @@ export default function GameScreen() {
       </header>
 
       {/* Main Interactive Stage */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+      <div className="game-stage" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
         <AnimatePresence mode="wait">
           {gameStep === 'choose-topic' && (
             <motion.div
@@ -451,7 +456,7 @@ export default function GameScreen() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 700, color: '#1c6b48' }}>
                     <Hand size={16} color="#1c6b48" />{' '}
-                    {noCut ? 'Ready to inspect — no cutting needed!' : FoodModel ? 'Drag down to cut' : 'Tap the button to cut'}
+                    {noCut ? 'Ready to inspect — no cutting needed!' : FoodModel && !touchOnly ? 'Drag down to cut' : 'Tap the button to cut'}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 600, color: '#387853' }}>
                     <span style={{ fontSize: '1rem', lineHeight: 1 }}>{noCut ? '✨' : '🔪'}</span>{' '}
@@ -485,6 +490,7 @@ export default function GameScreen() {
                     showPedestal
                     autoRotate={false}
                     controlsEnabled={false}
+                    scrollFriendly={touchOnly}
                   >
                     {/* Only the food spins in place when dragged — the knife and pedestal
                         never move, since the camera itself stays fixed the whole time. */}
@@ -563,7 +569,7 @@ export default function GameScreen() {
                         boxShadow: '0 8px 24px rgba(28, 107, 72, 0.38)',
                       }}
                     >
-                      <Hand size={20} /> {FoodModel ? 'DRAG TO CUT' : 'TAP TO CUT'}
+                      <Hand size={20} /> {FoodModel && !touchOnly ? 'DRAG TO CUT' : 'TAP TO CUT'}
                     </motion.button>
 
                     {/* Right side action dashes */}
@@ -939,7 +945,7 @@ export default function GameScreen() {
                   actually DOES to you. Only after a correct answer — a wrong one
                   should keep all the attention on trying again. */}
               {lastAnswerCorrect && (
-                <BodyEffect category={food.category} foodName={food.name.toLowerCase()} />
+                <BodyEffect category={food.category} foodName={food.name.toLowerCase()} food={food} />
               )}
 
               <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 18 }}>

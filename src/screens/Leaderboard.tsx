@@ -31,17 +31,6 @@ export default function Leaderboard() {
           ))}</tbody>
         </table>
         {ranked.every((p) => p.score === 0) && <p>Ready to earn your first points? Pick a food and try a question!</p>}
-        <button type="button" className="btn" onClick={() => {
-          refresh();
-          const entries = mergePlayers(Object.values(snapshot.players), usePlayerStore.getState().players);
-          const blob = new Blob([JSON.stringify({ version: 1, players: Object.fromEntries(entries.map((entry) => [entry.username, entry])) }, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = 'players.json';
-          link.click();
-          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }}>Download rankings JSON</button>
         <div className="player-actions"><Link className="btn" to="/foods">Keep exploring</Link><Link to="/">Home</Link></div>
       </section>
     </main>

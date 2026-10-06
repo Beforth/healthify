@@ -61,6 +61,8 @@ export default function FoodSelect() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 8,
           padding: '16px 12px 10px',
           boxSizing: 'border-box',
         }}
@@ -71,10 +73,12 @@ export default function FoodSelect() {
         />
 
         <div
+          className="foods-score"
           style={{
             background: 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(12px)',
             borderRadius: 999,
+            whiteSpace: 'nowrap',
             padding: '7px 16px',
             border: '1px solid rgba(31, 122, 77, 0.12)',
             boxShadow: '0 4px 14px rgba(31, 122, 77, 0.07)',
