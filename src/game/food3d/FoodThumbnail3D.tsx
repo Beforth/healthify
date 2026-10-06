@@ -26,7 +26,9 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
   const canvas = useRef<HTMLCanvasElement>(null);
   const drag = useRef({ x: 0, y: 0, moved: false });
   const [ready, setReady] = useState(false);
-  const hasModel = Boolean(FOOD_MODELS[foodId]);
+  // On a phone the grid of live 3D previews is what made scrolling choppy: a dozen WebGL
+  // views redrawing under a moving finger. Phones get the flat food illustration instead.
+  const hasModel = Boolean(FOOD_MODELS[foodId]) && !isTouchOnly();
   // On a phone the picker is a list to scroll: a thumbnail that turns under the finger traps
   // the swipe. Touch devices get a still preview that lets every touch fall through to the page.
   const touch = isTouchOnly();

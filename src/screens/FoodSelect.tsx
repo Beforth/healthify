@@ -9,11 +9,14 @@ import { nextRequiredCategory, useGameStore } from '../store/gameStore';
 import Breadcrumbs from '../components/Breadcrumbs';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
 import { modelPreloader } from '../services/modelPreloader';
+import { isTouchOnly } from '../lib/touch';
 import { preloadForGame } from '../game/food3d/foodRegistry';
 
 const PAGE_SIZE = 8;
 
 export default function FoodSelect() {
+  // no pop-up / lift effects on touch screens: they cost frames and a finger never hovers
+  const touch = isTouchOnly();
   const navigate = useNavigate();
   const score = usePlayerStore((s) => s.player.score);
   const lastCategoryPlayed = useGameStore((s) => s.lastCategoryPlayed);
@@ -251,8 +254,8 @@ export default function FoodSelect() {
               disabled={locked}
               initial={false}
               animate={{ y: 0, opacity: locked ? 0.42 : 1 }}
-              whileTap={locked ? undefined : { scale: 0.95 }}
-              whileHover={locked ? undefined : { y: -5 }}
+              whileTap={locked || touch ? undefined : { scale: 0.95 }}
+              whileHover={locked || touch ? undefined : { y: -5 }}
               onClick={() => {
                 if (locked) return;
                 preloadForGame(food.id); // ensure drei cache is warm before navigate

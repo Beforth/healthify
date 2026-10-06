@@ -330,3 +330,21 @@ button {
     font-size: 1.6rem !important;
   }
 }
+
+/* Touch screens: blur filters and long transitions are re-painted on every frame of a scroll,
+   which is what made the food list stutter. They are dropped on phones only. */
+@media (pointer: coarse) {
+  * {
+    backdrop-filter: none !important;
+  }
+  /* separate rule on purpose: the minifier merges the two spellings and keeps only one */
+  html body * {
+    -webkit-backdrop-filter: none !important;
+  }
+  .food-grid .card {
+    transition: none !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 210px;
+  }
+}
