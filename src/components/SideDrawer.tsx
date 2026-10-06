@@ -167,6 +167,24 @@ export default function SideDrawer() {
                   <Compass size={19} color="var(--green-dark)" />
                   Take the Tour
                 </button>
+
+                <a
+                  href="mailto:thehealthify1423@gmail.com"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    margin: '10px 14px 0',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: 'var(--ink-soft)',
+                    textDecoration: 'none',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  <Mail size={14} color="var(--green-dark)" />
+                  thehealthify1423@gmail.com
+                </a>
               </div>
             </motion.div>
           </>

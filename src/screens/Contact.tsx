@@ -9,7 +9,7 @@ export default function Contact() {
         from you.
       </p>
       <a
-        href="mailto:hello@healthify.app"
+        href="mailto:thehealthify1423@gmail.com"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -19,7 +19,7 @@ export default function Contact() {
           textDecoration: 'none',
         }}
       >
-        <Mail size={18} /> hello@healthify.app
+        <Mail size={18} /> thehealthify1423@gmail.com
       </a>
     </InfoScreen>
   );
