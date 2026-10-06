@@ -206,11 +206,16 @@ button {
     font-size: 0.8rem !important;
     min-width: 0;
   }
-  .crumb-sep,
-  .crumb-home,
   .crumb-mid,
   .crumb-chev {
     display: none !important;
+  }
+  /* Home stays reachable on a phone as a bare icon; only its label goes. */
+  .crumb-home-label {
+    display: none;
+  }
+  .crumb-home {
+    padding: 4px 6px !important;
   }
   .game-header button[aria-label='Skip to the quiz'] {
     padding: 6px 12px !important;
@@ -223,6 +228,9 @@ button {
   .game-score-link {
     display: none;
   }
+  .game-stage {
+    align-items: flex-start !important;
+  }
   .stage-card {
     min-height: 0 !important;
     border-radius: 22px !important;
@@ -231,15 +239,37 @@ button {
     padding: 10px 12px 0 !important;
   }
   .stage-badge {
-    padding: 6px 12px 6px 8px !important;
+    padding: 5px 12px 5px 6px !important;
     gap: 8px !important;
+    border-radius: 16px !important;
+  }
+  .stage-badge > div:first-child {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+  }
+  .stage-badge > div:last-child > div:first-child {
+    font-size: 1rem !important;
+  }
+  /* the subtitle was what pushed the badge down into the knife */
+  .stage-badge > div:last-child > div:last-child {
+    display: none;
+  }
+  .stage-canvas {
+    margin-top: 6px !important;
+  }
+  .foods-score {
+    padding: 5px 12px !important;
+    font-size: 0.82rem !important;
+  }
+  .foods-score a {
+    font-size: 0.8rem;
   }
   .stage-tips {
     display: none !important;
   }
   .stage-canvas {
     min-height: clamp(300px, 50vh, 440px) !important;
-    margin-top: -8px !important;
   }
 }
 
