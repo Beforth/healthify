@@ -118,7 +118,7 @@ export default function GameScreen() {
 
   return (
     <div
-      className="screen"
+      className="screen game-screen"
       style={{
         minHeight: '100vh',
         padding: '16px 20px 32px',
@@ -221,6 +221,7 @@ export default function GameScreen() {
 
         {/* Right: Score Pill Card */}
         <div
+          className="game-score"
           style={{
             background: '#ffffff',
             borderRadius: 999,
@@ -247,7 +248,7 @@ export default function GameScreen() {
               Score
             </span>
             <span style={{ fontSize: '1.18rem', fontWeight: 900, color: '#134e2c' }}>{score}</span>
-            <Link to="/leaderboard" style={{ color: 'var(--green-dark)' }}>Leaderboard</Link>
+            <Link to="/leaderboard" className="game-score-link" style={{ color: 'var(--green-dark)' }}>Leaderboard</Link>
           </div>
         </div>
       </header>
@@ -310,6 +311,7 @@ export default function GameScreen() {
           {gameStep === 'cut' && (
             <motion.div
               key="cut"
+              className="stage-card"
               initial={{ opacity: 0, scale: 0.98 }}
               animate={zooming ? { scale: 1.35, opacity: 0, filter: 'blur(4px)' } : { opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
@@ -376,6 +378,7 @@ export default function GameScreen() {
 
               {/* Top Row: Floating Food Info Card (Left) & Tips Card (Right) */}
               <div
+                className="stage-top"
                 style={{
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -388,6 +391,7 @@ export default function GameScreen() {
               >
                 {/* Top-Left: Food Badge */}
                 <motion.div
+                  className="stage-badge"
                   initial={{ opacity: 0, x: -16 }}
                   animate={{ opacity: 1, x: 0 }}
                   style={{
@@ -429,6 +433,7 @@ export default function GameScreen() {
 
                 {/* Top-Right: Tips Card */}
                 <motion.div
+                  className="stage-tips"
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   style={{
@@ -460,6 +465,7 @@ export default function GameScreen() {
 
               {/* Center 3D Stage with Big Canvas & Sage Cutting Pedestal */}
               <div
+                className="stage-canvas"
                 style={{
                   position: 'relative',
                   width: '100%',

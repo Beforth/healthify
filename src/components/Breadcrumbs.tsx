@@ -105,6 +105,7 @@ export default function Breadcrumbs({
       {/* Divider between Back and Home */}
       {showBack && showHome && (
         <span
+          className="crumb-sep"
           style={{
             width: 1,
             height: 16,
@@ -118,6 +119,7 @@ export default function Breadcrumbs({
       {/* Home Crumb */}
       {showHome && (
         <motion.button
+          className="crumb-home"
           onClick={() => navigate('/')}
           whileTap={{ scale: 0.94 }}
           whileHover={{ scale: 1.04 }}
@@ -151,6 +153,7 @@ export default function Breadcrumbs({
         return (
           <React.Fragment key={`${item.label}-${index}`}>
             <ChevronRight
+              className="crumb-chev"
               size={13}
               strokeWidth={2.5}
               style={{
@@ -162,6 +165,7 @@ export default function Breadcrumbs({
 
             {item.to && !isLast ? (
               <motion.button
+                className="crumb-mid"
                 onClick={() => navigate(item.to!)}
                 whileTap={{ scale: 0.94 }}
                 whileHover={{ scale: 1.04 }}
