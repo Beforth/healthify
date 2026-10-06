@@ -166,11 +166,13 @@ class PreviewRenderer {
     controls.autoRotateSpeed = 1.4;
     controls.update();
     // A thumbnail inside a scrolling list must not own the finger. OrbitControls claims every
-    // touch on its canvas, so on a phone it is switched off and the page scrolls underneath.
-    if (isTouchOnly()) {
+    // touch on its canvas, so on touch/mobile devices it is switched off and vertical panning is preserved.
+    controls.enableZoom = false;
+    const isTouch = isTouchOnly() || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
+    if (isTouch) {
       controls.enabled = false;
-      canvas.style.touchAction = 'auto';
     }
+    canvas.style.touchAction = 'pan-y';
 
     const rect = canvas.getBoundingClientRect();
     const view: View = {

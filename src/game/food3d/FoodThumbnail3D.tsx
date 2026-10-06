@@ -47,10 +47,14 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foodId, hasModel, scale]);
 
+  // On mobile/touch devices, previews are non-interactive still images so swipes
+  // fall directly through to the scroll container without trapping or stuttering.
+  const isTouchOrCoarse = touch || (typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 768));
+
   if (!hasModel) return <FoodIcon id={foodId} size={size} />;
 
   return (
-    <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: size, height: size, margin: '0 auto', touchAction: 'pan-y' }}>
       {/* Instant 2D placeholder backdrop: zero pop-in, zero blank frames */}
       <div
         style={{
@@ -71,29 +75,31 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
         ref={canvas}
         width={size}
         height={size}
-        aria-label={`Rotate ${foodId} preview`}
+        aria-label={`${foodId} preview`}
         data-food-preview={foodId}
         style={{
           position: 'absolute',
           inset: 0,
           width: size,
           height: size,
-          touchAction: touch ? 'auto' : 'none',
-          pointerEvents: touch ? 'none' : 'auto',
+          touchAction: 'pan-y',
+          pointerEvents: isTouchOrCoarse ? 'none' : 'auto',
           opacity: ready ? 1 : 0,
           transition: 'opacity 0.18s ease-in',
         }}
-        onPointerDown={(event) => {
-          drag.current = { x: event.clientX, y: event.clientY, moved: false };
-        }}
-        onPointerMove={(event) => {
-          if (event.buttons && Math.hypot(event.clientX - drag.current.x, event.clientY - drag.current.y) > 5) {
-            drag.current.moved = true;
-          }
-        }}
-        onClick={(event) => {
-          if (drag.current.moved) event.stopPropagation();
-        }}
+        {...(!isTouchOrCoarse ? {
+          onPointerDown: (event: React.PointerEvent) => {
+            drag.current = { x: event.clientX, y: event.clientY, moved: false };
+          },
+          onPointerMove: (event: React.PointerEvent) => {
+            if (event.buttons && Math.hypot(event.clientX - drag.current.x, event.clientY - drag.current.y) > 5) {
+              drag.current.moved = true;
+            }
+          },
+          onClick: (event: React.MouseEvent) => {
+            if (drag.current.moved) event.stopPropagation();
+          },
+        } : {})}
       />
     </div>
   );

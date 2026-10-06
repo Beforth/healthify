@@ -16,7 +16,7 @@ const PAGE_SIZE = 8;
 
 export default function FoodSelect() {
   // no pop-up / lift effects on touch screens: they cost frames and a finger never hovers
-  const touch = isTouchOnly();
+  const touch = isTouchOnly() || (typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 768));
   const navigate = useNavigate();
   const score = usePlayerStore((s) => s.player.score);
   const lastCategoryPlayed = useGameStore((s) => s.lastCategoryPlayed);
@@ -26,7 +26,11 @@ export default function FoodSelect() {
   const [page, setPage] = useState(0);
 
   useEffect(() => {
-    modelPreloader.startBackgroundPreloading();
+    // Defer background warming slightly so initial scroll/paint has 100% of the CPU/GPU
+    const timer = setTimeout(() => {
+      modelPreloader.startBackgroundPreloading();
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   const required = nextRequiredCategory(lastCategoryPlayed);
@@ -39,19 +43,22 @@ export default function FoodSelect() {
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = visibleFoods.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  // Stagger preloading of drei's game models for foods on the current page so
-  // network bandwidth is not flooded all at once.
+  // Stagger preloading of drei's game models gently after initial page settling
+  // so scrolling is never interrupted by heavy GLTF buffer parsing.
   useEffect(() => {
     let idx = 0;
-    const timer = setInterval(() => {
-      if (idx < pageItems.length) {
-        preloadForGame(pageItems[idx].id);
-        idx++;
-      } else {
-        clearInterval(timer);
-      }
-    }, 400);
-    return () => clearInterval(timer);
+    const delayTimer = setTimeout(() => {
+      const timer = setInterval(() => {
+        if (idx < pageItems.length) {
+          preloadForGame(pageItems[idx].id);
+          idx++;
+        } else {
+          clearInterval(timer);
+        }
+      }, 800);
+      return () => clearInterval(timer);
+    }, 1200);
+    return () => clearTimeout(delayTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safePage, categoryFilter, query]);
 
@@ -236,6 +243,7 @@ export default function FoodSelect() {
           maxWidth: 960,
           width: '100%',
           marginTop: 20,
+          touchAction: 'pan-y',
         }}
         className="food-grid"
       >
@@ -278,6 +286,8 @@ export default function FoodSelect() {
                 background: '#ffffff',
                 boxShadow: locked ? 'none' : '0 6px 18px rgba(0,0,0,0.04)',
                 overflow: 'hidden',
+                touchAction: 'pan-y',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               {locked && (

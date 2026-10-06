@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hand } from 'lucide-react';
+import { Hand, X } from 'lucide-react';
 import FoodCanvas from './FoodCanvas';
 import KeepInView from './KeepInView';
 import FitScale from './FitScale';
@@ -86,6 +86,19 @@ export default function CrossSectionShell({
   const [variant, setVariant] = useState<MicroVariant>('cartoon');
   const [touchOnly] = useState(isTouchOnly);
   const [moveMode, setMoveMode] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 768;
+  });
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+
   const activeFact = facts.find((f) => f.id === active) ?? null;
   const flatHasMarkers = typeof flatView === 'function';
   const showDotHint = (hasDots ?? (Boolean(scene) || flatHasMarkers)) && !activeFact;
@@ -389,6 +402,127 @@ export default function CrossSectionShell({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Mobile Floating Bottom Sheet: appears immediately at the bottom of the screen
+          whenever a '+' marker or nutrient chip is selected, so the user never loses
+          sight of the 3D food above. */}
+      <AnimatePresence>
+        {isMobile && activeFact && (
+          <motion.div
+            key={`mobile-sheet-${activeFact.id}`}
+            role="dialog"
+            aria-label={`${activeFact.name} nutrition information`}
+            initial={{ y: 120, opacity: 0, scale: 0.94 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 100, opacity: 0, scale: 0.94, transition: { duration: 0.18, ease: 'easeIn' } }}
+            transition={{ type: 'spring', damping: 25, stiffness: 320 }}
+            style={{
+              position: 'fixed',
+              bottom: 'max(14px, env(safe-area-inset-bottom, 14px))',
+              left: 12,
+              right: 12,
+              maxWidth: 440,
+              margin: '0 auto',
+              zIndex: 120,
+              background: '#ffffff',
+              borderRadius: 22,
+              border: `2px solid ${activeFact.color}`,
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(27, 105, 70, 0.12)',
+              padding: '14px 16px 14px',
+              textAlign: 'left',
+              boxSizing: 'border-box',
+            }}
+          >
+            {/* Grab indicator */}
+            <div
+              style={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                background: '#d5e4dc',
+                margin: '0 auto 8px',
+              }}
+            />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <motion.div
+                  animate={{ rotate: [0, -6, 6, 0] }}
+                  transition={{ duration: 2.2, repeat: Infinity }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    background: 'var(--green-light)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                  }}
+                >
+                  {activeFact.icon}
+                </motion.div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: '1.02rem', color: 'var(--green-dark)' }}>
+                      {activeFact.name}
+                    </span>
+                    {activeFact.tag && (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          background: '#dff5e6',
+                          color: 'var(--green-dark)',
+                        }}
+                      >
+                        {activeFact.tag}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Dismiss button */}
+              <button
+                onClick={() => setActive(null)}
+                aria-label="Close details"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: 'rgba(0, 0, 0, 0.06)',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--ink-soft)',
+                  flexShrink: 0,
+                  padding: 0,
+                }}
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                fontSize: '0.92rem',
+                color: 'var(--ink)',
+                marginTop: 8,
+                lineHeight: 1.45,
+                fontWeight: 500,
+              }}
+            >
+              {activeFact.fact}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -86,6 +86,9 @@ button {
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   isolation: isolate;
   background-color: #f7fcf9;
   background-image:
@@ -331,9 +334,9 @@ button {
   }
 }
 
-/* Touch screens: blur filters and long transitions are re-painted on every frame of a scroll,
-   which is what made the food list stutter. They are dropped on phones only. */
-@media (pointer: coarse) {
+/* Mobile and touch screens: drop heavy blur filters and animations during scroll to keep 60fps.
+   Remove content-visibility: auto to prevent layout thrashing and scroll-stopping bugs. */
+@media (pointer: coarse), (max-width: 768px) {
   * {
     backdrop-filter: none !important;
   }
@@ -341,10 +344,19 @@ button {
   html body * {
     -webkit-backdrop-filter: none !important;
   }
+  .screen::after {
+    animation: none !important;
+    filter: blur(20px) !important;
+    opacity: 0.5 !important;
+  }
+  .food-grid {
+    touch-action: pan-y !important;
+  }
   .food-grid .card {
-    transition: none !important;
+    transition: transform 0.12s ease, box-shadow 0.12s ease !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
-    content-visibility: auto;
-    contain-intrinsic-size: auto 210px;
+    touch-action: pan-y !important;
+    contain: paint;
+    -webkit-tap-highlight-color: transparent;
   }
 }
