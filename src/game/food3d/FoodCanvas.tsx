@@ -10,7 +10,14 @@ interface FoodCanvasProps {
   autoRotate?: boolean;
   controlsEnabled?: boolean;
   showPedestal?: boolean;
+  /** For a canvas that sits inside a scrolling page. Leaves vertical swipes to the
+   *  page (so a thumb on the model can still scroll), spins sideways only, and
+   *  stops the mouse wheel from zooming instead of scrolling. */
+  scrollFriendly?: boolean;
 }
+
+/** The camera's resting polar angle, from its position and orbit target. */
+const REST_POLAR = Math.acos((1.25 - 0.35) / Math.hypot(5.6, 1.25 - 0.35));
 
 /** The plate is a short cylinder hanging below the origin, so the surface a food
  *  actually rests on is nowhere near y = 0. Every measurement of it lives here so
@@ -122,6 +129,7 @@ export default function FoodCanvas({
   autoRotate = true,
   controlsEnabled = true,
   showPedestal = false,
+  scrollFriendly = false,
 }: FoodCanvasProps) {
   // Auto-rotate fights a hand-drag if it keeps nudging the camera mid-gesture —
   // pause it for as long as the user is actually holding the drag.
@@ -131,7 +139,7 @@ export default function FoodCanvas({
   const cameraTarget: [number, number, number] = showPedestal ? [0, -0.05, 0] : [0, 0.35, 0];
 
   return (
-    <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: 'none' }}>
+    <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: scrollFriendly ? 'pan-y' : 'none' }}>
       <Canvas camera={{ position: cameraPos, fov: 46 }} dpr={[1, 1.5]}>
         {/* Studio multi-light setup: instant, zero network dependencies, 60fps */}
         <ambientLight intensity={0.68} />
@@ -153,11 +161,11 @@ export default function FoodCanvas({
           enabled={controlsEnabled}
           target={cameraTarget}
           enablePan={false}
-          enableZoom
+          enableZoom={!scrollFriendly}
           minDistance={2.8}
           maxDistance={6}
-          minPolarAngle={Math.PI / 3.2}
-          maxPolarAngle={Math.PI / 1.6}
+          minPolarAngle={scrollFriendly ? REST_POLAR : Math.PI / 3.2}
+          maxPolarAngle={scrollFriendly ? REST_POLAR : Math.PI / 1.6}
           enableDamping
           dampingFactor={0.12}
           autoRotate={autoRotate && !interacting}

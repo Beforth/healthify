@@ -4,7 +4,7 @@ import { LollipopHalfGeometry } from './LollipopModel';
 import Hotspot from './Hotspot';
 import { MICRO } from '../micro/microStructures';
 
-const FACTS: CrossSectionFact[] = [
+export const FACTS: CrossSectionFact[] = [
   {
     id: 'sugar',
     icon: <Candy size={20} color="#ff6b9d" />,

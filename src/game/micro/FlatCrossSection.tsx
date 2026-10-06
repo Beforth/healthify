@@ -5,6 +5,8 @@ import FlatCutStage from '../../components/FlatCutStage';
 import { MICRO } from './microStructures';
 import { FOOD_MODELS, NO_CUT_FOODS, foodSizeOf } from '../food3d/foodRegistry';
 import FitScale from '../food3d/FitScale';
+import { FACTS as ICE_CREAM_FACTS } from '../food3d/IceCreamCrossSection3D';
+import { FACTS as LOLLIPOP_FACTS } from '../food3d/LollipopCrossSection3D';
 
 /**
  * The microscope screen for foods with no 3D model.
@@ -19,6 +21,9 @@ import FitScale from '../food3d/FitScale';
  * drift apart. Every number below comes straight off the client's sheet.
  */
 const FLAT_FACTS: Record<string, CrossSectionFact[]> = {
+  // these two used to have a hand-made cross-section; their facts live beside it, so reuse them
+  'ice-cream': ICE_CREAM_FACTS,
+  lollipop: LOLLIPOP_FACTS,
   corn: [
     {
       id: 'sugar',
@@ -1418,12 +1423,17 @@ export default function FlatCrossSection({ foodId }: { foodId: string }) {
       facts={facts}
       micro={micro}
       panelTitle={panelTitle}
-      hasDots={false}
+      autoFit={false}
       scene={
         FoodModel
-          ? () => (
-              <FitScale target={foodSizeOf(foodId)}>
-                <FoodModel cutProgressRef={cutRef} stage="cut" />
+          ? (active, select) => (
+              <FitScale target={foodSizeOf(foodId) * 1.35} live>
+                <FoodModel
+                  cutProgressRef={cutRef}
+                  stage="cut"
+                  showcase
+                  markers={{ facts: facts.map((f) => ({ id: f.id, color: f.color })), active, onSelect: select }}
+                />
               </FitScale>
             )
           : undefined

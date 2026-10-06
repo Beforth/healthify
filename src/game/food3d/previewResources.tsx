@@ -3,6 +3,8 @@ import { createRoot, extend, useFrame, type ReconcilerRoot, type RootStore } fro
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
 import { FOOD_MODELS, PREVIEW_SCANS, foodSizeOf } from './foodRegistry';
+import { splitBowl } from './bowlSplit';
+import { largestPart } from './meshParts';
 
 // Register only constructors used by procedural food models (not THREE utilities).
 extend({ Group: THREE.Group, Mesh: THREE.Mesh, SphereGeometry: THREE.SphereGeometry,
@@ -141,6 +143,35 @@ export class PreviewBuilder {
           }
         }
       });
+      if (scan.keepLargest) {
+        gltf.scene.traverse((node) => {
+          if (node instanceof THREE.Mesh) node.geometry = largestPart(node.geometry);
+        });
+      }
+      if (scan.bowlBelow !== undefined) {
+        // same coloured bowl as the cut screen
+        const fused: THREE.Mesh[] = [];
+        gltf.scene.traverse((node) => {
+          if (node instanceof THREE.Mesh) fused.push(node);
+        });
+        for (const mesh of fused) {
+          const parts = splitBowl(mesh.geometry, scan.bowlBelow);
+          const foodMat = (mesh.material as THREE.Material).clone();
+          foodMat.side = THREE.DoubleSide;
+          const food = new THREE.Mesh(parts.food, foodMat);
+          const glass = new THREE.Mesh(
+            parts.bowl,
+            new THREE.MeshStandardMaterial({
+              color: scan.bowlColor ?? '#4a7fb5',
+              roughness: 0.45,
+              metalness: 0.05,
+              side: THREE.DoubleSide,
+            }),
+          );
+          mesh.parent?.add(food, glass);
+          mesh.parent?.remove(mesh);
+        }
+      }
       const pose = new THREE.Group();
       const upright = new THREE.Group();
       upright.rotation.set(...(scan.rotate ?? [0, 0, 0]));

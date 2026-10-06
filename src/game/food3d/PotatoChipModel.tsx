@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { useCutKick } from './useCutKick';
 import { sliceAtX, type SlicedHalf } from './sliceMesh';
 
-const MODEL_URL = `${import.meta.env.BASE_URL}models/poptao-chip.glb`;
+const MODEL_URL = `${import.meta.env.BASE_URL}models/potato-chips.glb`;
 
 /** A photoscanned wavy potato crisp, about 0.87 x 1.0 x 0.23 in its own units.
  *  It arrives standing on edge; the whole sheet is turned flat so the crisp
@@ -91,7 +91,7 @@ export function PotatoChipHalfGeometry({ isLeft = false }: { isLeft?: boolean })
     // way a crisp really sits — thickness up — so the cut at x = 0 snaps it
     // across its width like a biscuit.
     const flat = (source.geometry as THREE.BufferGeometry).clone();
-    flat.rotateX(Math.PI / 2);
+    flat.rotateX(-Math.PI / 2);
     const sliced = sliceAtX(flat, isLeft);
     flat.dispose();
     return sliced;

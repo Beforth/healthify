@@ -486,7 +486,7 @@ export default function GameScreen() {
                       {/* fitted to the food's own target size so every food fills
                           the space it wants, sized per-food not off a reference,
                           and sat on the board rather than centred on the origin */}
-                      <FitScale target={foodSizeOf(food.id)} groundY={BOARD_TOP_Y}>
+                      <FitScale target={foodSizeOf(food.id) * 1.25} groundY={BOARD_TOP_Y} live>
                         {/* This is the only screen that shows the inside, so it is the
                             only one that asks for the board pose. */}
                         <FoodModel cutProgressRef={cutProgressRef} stage="cut" />
