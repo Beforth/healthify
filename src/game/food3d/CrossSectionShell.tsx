@@ -4,6 +4,7 @@ import { Hand } from 'lucide-react';
 import FoodCanvas from './FoodCanvas';
 import KeepInView from './KeepInView';
 import FitScale from './FitScale';
+import MoveToggle, { isTouchOnly } from './MoveToggle';
 import CellView, { type MicroVariant } from '../micro/CellView';
 import type { MicroSpec } from '../micro/microStructures';
 
@@ -83,6 +84,8 @@ export default function CrossSectionShell({
   // of text that tells a child the thing is interactive at all.
   const [active, setActive] = useState<string | null>(null);
   const [variant, setVariant] = useState<MicroVariant>('cartoon');
+  const [touchOnly] = useState(isTouchOnly);
+  const [moveMode, setMoveMode] = useState(false);
   const activeFact = facts.find((f) => f.id === active) ?? null;
   const flatHasMarkers = typeof flatView === 'function';
   const showDotHint = (hasDots ?? (Boolean(scene) || flatHasMarkers)) && !activeFact;
@@ -113,10 +116,11 @@ export default function CrossSectionShell({
           }}
         >
           <PanelTitle>{panelTitle ?? (scene ? 'Your cut, in 3D' : 'Your cut')}</PanelTitle>
+          {scene && touchOnly && <MoveToggle on={moveMode} onChange={setMoveMode} corner="bottom-left" />}
           {scene ? (
             // No auto-rotate: the cut face should stay facing the viewer. Controls stay on
             // so they can still spin it by hand.
-            <FoodCanvas height="clamp(300px, 70vw, 420px)" width="100%" autoRotate={false} controlsEnabled scrollFriendly>
+            <FoodCanvas height="clamp(300px, 70vw, 420px)" width="100%" autoRotate={false} controlsEnabled scrollFriendly={touchOnly && !moveMode}>
               <KeepInView>
                 {autoFit ? <FitScale live target={3.3}>{scene(active, setActive)}</FitScale> : scene(active, setActive)}
               </KeepInView>

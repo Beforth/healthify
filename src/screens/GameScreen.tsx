@@ -12,6 +12,7 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import Celebration from '../components/Celebration';
 import BodyEffect from '../components/BodyEffect';
 import FoodCanvas, { BOARD_TOP_Y } from '../game/food3d/FoodCanvas';
+import MoveToggle, { isTouchOnly } from '../game/food3d/MoveToggle';
 import FitScale from '../game/food3d/FitScale';
 import Knife3D from '../game/food3d/Knife3D';
 import SliceImpact from '../game/food3d/SliceImpact';
@@ -60,9 +61,9 @@ export default function GameScreen() {
   const food = foodId ? getFoodById(foodId) : undefined;
   // On a touchscreen a finger on the 3D stage would otherwise own every swipe and the page
   // could not be scrolled past it. Touch devices let the page scroll and cut with a tap.
-  const [touchOnly] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true,
-  );
+  const [touchOnly] = useState(isTouchOnly);
+  // "Move food" hands the finger to the 3D scene until it is switched off again
+  const [moveMode, setMoveMode] = useState(false);
 
   useEffect(() => {
     if (!food) navigate('/foods', { replace: true });
@@ -483,6 +484,7 @@ export default function GameScreen() {
                   marginBottom: 4,
                 }}
               >
+                {FoodModel && touchOnly && <MoveToggle on={moveMode} onChange={setMoveMode} />}
                 {FoodModel ? (
                   <FoodCanvas
                     height="clamp(360px, 54vh, 600px)"
@@ -490,7 +492,7 @@ export default function GameScreen() {
                     showPedestal
                     autoRotate={false}
                     controlsEnabled={false}
-                    scrollFriendly={touchOnly}
+                    scrollFriendly={touchOnly && !moveMode}
                   >
                     {/* Only the food spins in place when dragged — the knife and pedestal
                         never move, since the camera itself stays fixed the whole time. */}
