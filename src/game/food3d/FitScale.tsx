@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import KeepInView from './KeepInView';
 
@@ -64,6 +64,10 @@ export default function FitScale({
   live?: boolean;
   children: ReactNode;
 }) {
+  // A tall, narrow canvas (a phone held upright) sees far less sideways than a laptop
+  // does, so a food fitted to the same size spills out of both sides of it.
+  const aspect = useThree((state) => state.size.width / Math.max(state.size.height, 1));
+  const width = Math.min(1, aspect / 1.15);
   const contentRef = useRef<THREE.Group>(null);
   const fittedRef = useRef(false);
   const [fit, setFit] = useState({ scale: 1, offsetY: 0 });
@@ -106,7 +110,7 @@ export default function FitScale({
       if (bounds) {
         // what the camera sees is width and height; how far a half reaches back is nearly
         // free, and counting it would shrink every long, thin food to a speck
-        const scale = target / Math.max(bounds.screen, bounds.max * 0.6);
+        const scale = (target * width) / Math.max(bounds.screen, bounds.max * 0.6);
         const first = st.scale === 0;
         st.scale = scale;
         st.x = -bounds.cx * scale;

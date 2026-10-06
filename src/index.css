@@ -167,20 +167,79 @@ button {
 }
 
 @media (max-width: 420px) {
-  .core-idea-grid,
-  .food-grid {
+  .core-idea-grid {
     grid-template-columns: 1fr !important;
+  }
+  /* Two foods per row: one card per row made every page four screens long. */
+  .food-grid {
+    gap: 10px !important;
+  }
+  .food-grid .card {
+    padding: 10px 6px 10px !important;
+    border-radius: 18px !important;
+    gap: 4px !important;
+  }
+  .food-grid .card > div:not(:first-child) {
+    font-size: 0.85rem !important;
   }
 }
 
-/* GameScreen's header packs Back+Skip, the brand, and the score pill into one
-   row — there's room for that on a laptop, but not a phone. Below 640px the
-   brand drops to its own full-width row instead of squeezing (or overflowing)
-   the other two. */
+/* GameScreen's header packs Back+Skip, the brand and the score pill into one row.
+   That fits a laptop; on a phone it ate a third of the screen before the food even
+   showed. Below 640px the page chrome shrinks to one slim row — back, skip, score —
+   and the stage gets the rest of the height. */
 @media (max-width: 640px) {
+  .game-screen {
+    padding: 8px 10px 16px !important;
+  }
+  .game-header {
+    flex-wrap: nowrap !important;
+    gap: 8px;
+    padding: 0 0 8px !important;
+    row-gap: 0 !important;
+  }
   .game-header-brand {
-    order: 3;
-    flex-basis: 100%;
+    display: none !important;
+  }
+  .game-header nav[aria-label='Breadcrumb'] {
+    padding: 3px 10px 3px 4px !important;
+    font-size: 0.8rem !important;
+    min-width: 0;
+  }
+  .crumb-sep,
+  .crumb-home,
+  .crumb-mid,
+  .crumb-chev {
+    display: none !important;
+  }
+  .game-header button[aria-label='Skip to the quiz'] {
+    padding: 6px 12px !important;
+    font-size: 0.78rem !important;
+  }
+  .game-score {
+    padding: 3px 12px 3px 9px !important;
+    gap: 6px !important;
+  }
+  .game-score-link {
+    display: none;
+  }
+  .stage-card {
+    min-height: 0 !important;
+    border-radius: 22px !important;
+  }
+  .stage-top {
+    padding: 10px 12px 0 !important;
+  }
+  .stage-badge {
+    padding: 6px 12px 6px 8px !important;
+    gap: 8px !important;
+  }
+  .stage-tips {
+    display: none !important;
+  }
+  .stage-canvas {
+    min-height: clamp(300px, 50vh, 440px) !important;
+    margin-top: -8px !important;
   }
 }
 
