@@ -2,6 +2,7 @@ import { memo, useLayoutEffect, useRef, useState } from 'react';
 import FoodIcon from '../../components/FoodIcon';
 import { FOOD_MODELS } from './foodRegistry';
 import { attachPreview } from './PreviewRenderer';
+import { isTouchOnly } from '../../lib/touch';
 
 /** A small, auto-rotating preview of a food's real 3D model — used on the picker.
  *  Draggable to spin by hand, same as the other 3D views.
@@ -26,6 +27,9 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
   const drag = useRef({ x: 0, y: 0, moved: false });
   const [ready, setReady] = useState(false);
   const hasModel = Boolean(FOOD_MODELS[foodId]);
+  // On a phone the picker is a list to scroll: a thumbnail that turns under the finger traps
+  // the swipe. Touch devices get a still preview that lets every touch fall through to the page.
+  const touch = isTouchOnly();
 
   useLayoutEffect(() => {
     const surface = canvas.current;
@@ -74,7 +78,8 @@ const FoodThumbnail3D = memo(function FoodThumbnail3D({
           inset: 0,
           width: size,
           height: size,
-          touchAction: 'none',
+          touchAction: touch ? 'auto' : 'none',
+          pointerEvents: touch ? 'none' : 'auto',
           opacity: ready ? 1 : 0,
           transition: 'opacity 0.18s ease-in',
         }}

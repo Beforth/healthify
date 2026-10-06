@@ -3,6 +3,7 @@ import { OrbitControls, RGBELoader } from 'three-stdlib';
 import { PreviewBuilder, type PreviewResource } from './previewResources';
 import { PreviewCache } from './previewCache';
 import { PREVIEW_SCANS } from './foodRegistry';
+import { isTouchOnly } from '../../lib/touch';
 
 const MAX_MODELS = 256;
 const MAX_BYTES = 1024 * 1024 * 1024; // Generous budget so no model is ever evicted or rejected
@@ -164,6 +165,12 @@ class PreviewRenderer {
     controls.autoRotate = false;
     controls.autoRotateSpeed = 1.4;
     controls.update();
+    // A thumbnail inside a scrolling list must not own the finger. OrbitControls claims every
+    // touch on its canvas, so on a phone it is switched off and the page scrolls underneath.
+    if (isTouchOnly()) {
+      controls.enabled = false;
+      canvas.style.touchAction = 'auto';
+    }
 
     const rect = canvas.getBoundingClientRect();
     const view: View = {
