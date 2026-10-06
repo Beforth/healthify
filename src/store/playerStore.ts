@@ -75,10 +75,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   storageAvailable,
   usernameConfirmed: confirmed(),
   confirmUsername: (name) => {
-    if (get().usernameConfirmed || confirmed()) {
-      get().refresh();
-      return 'Your explorer name has already been saved.';
-    }
+    get().refresh();
     const username = name.trim();
     if (!validName(username)) return 'Use 3–32 letters, numbers, underscores or hyphens. Start with a letter or number.';
     const previous = get().player;
@@ -88,7 +85,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     const player = { username, score: players.find((p) => p.username === previous.username)?.score ?? previous.score };
     try {
-      // Keep the original profile intact unless the new identity and lock save successfully.
+      // Keep the original profile intact unless the new name and confirmation save successfully.
       localStorage.setItem(PLAYER_PREFIX + username, JSON.stringify(player));
       localStorage.setItem(USER_KEY, username);
       localStorage.setItem(CONFIRMED_KEY, '1');

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Menu, X, Info, FileText, Mail, Compass, Trophy } from 'lucide-react';
 import { useTourStore } from '../store/tourStore';
+import { usePlayerStore } from '../store/playerStore';
+import UsernameModal from './UsernameModal';
 
 const LINKS = [
   { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
@@ -13,11 +15,15 @@ const LINKS = [
 
 export default function SideDrawer() {
   const [open, setOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const username = usePlayerStore((s) => s.player.username);
+  const usernameConfirmed = usePlayerStore((s) => s.usernameConfirmed);
   const navigate = useNavigate();
   const startTour = useTourStore((s) => s.start);
 
   return (
     <>
+      {editingName && <UsernameModal editing onClose={() => setEditingName(false)} />}
       <motion.button
         onClick={() => setOpen(true)}
         aria-label="Open menu"
@@ -74,6 +80,7 @@ export default function SideDrawer() {
                 display: 'flex',
                 flexDirection: 'column',
                 padding: '20px 18px',
+                overflowY: 'auto',
               }}
             >
               <div
@@ -94,6 +101,17 @@ export default function SideDrawer() {
                 >
                   <X size={22} />
                 </button>
+              </div>
+
+              <div className="drawer-profile">
+                <span className="drawer-profile-label">Your explorer name</span>
+                <strong className="drawer-username">{username}</strong>
+                {usernameConfirmed && (
+                  <button type="button" className="drawer-username-edit" onClick={() => {
+                    setOpen(false);
+                    setEditingName(true);
+                  }}>Change username</button>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

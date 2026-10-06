@@ -11,7 +11,7 @@ export default defineConfig({
       // unhandled error that takes the whole dev server down. Nothing in here
       // needs hot reload — the models are fetched over HTTP at runtime, so a
       // page refresh already picks up a new one.
-      ignored: ['**/public/models/**'],
+      ignored: ['**/public/models/**', '**/public/data/**'],
     },
   },
 })

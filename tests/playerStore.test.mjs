@@ -72,7 +72,7 @@ test('another tab score update is included in the next answer', async () => {
   assert.equal(first.getState().player.score, 5);
 });
 
-test('a name can be saved once, preserving points and removing the old leaderboard entry', async () => {
+test('names can be changed repeatedly, preserving points and removing the old leaderboard entry', async () => {
   data.clear();
   const store = await load();
   const original = store.getState().player.username;
@@ -84,18 +84,20 @@ test('a name can be saved once, preserving points and removing the old leaderboa
   const reloaded = await load();
   assert.equal(reloaded.getState().usernameConfirmed, true);
   assert.equal(reloaded.getState().players.length, 1);
-  assert.ok(reloaded.getState().confirmUsername('AnotherName'));
-  assert.equal(reloaded.getState().player.username, 'SuperPanda');
+  assert.equal(reloaded.getState().confirmUsername('AnotherName'), null);
+  assert.deepEqual(reloaded.getState().player, { username: 'AnotherName', score: 20 });
+  assert.equal(data.has('healthify_player_SuperPanda'), false);
+  assert.equal((await load()).getState().players.length, 1);
 });
 
-test('keeping the generated name also uses the one-time save', async () => {
+test('keeping the generated name confirms onboarding', async () => {
   data.clear();
   const store = await load();
   assert.equal(store.getState().confirmUsername(store.getState().player.username), null);
   assert.equal((await load()).getState().usernameConfirmed, true);
 });
 
-test('invalid and duplicate names do not use up the edit', async () => {
+test('invalid and duplicate names are rejected', async () => {
   data.clear();
   const store = await load();
   data.set('healthify_player_TakenName', JSON.stringify({ username: 'TakenName', score: 10 }));
@@ -106,15 +108,15 @@ test('invalid and duplicate names do not use up the edit', async () => {
   assert.equal(store.getState().confirmUsername('My_Panda-123'), null);
 });
 
-test('an older tab cannot rename again or restore the previous identity when scoring', async () => {
+test('an older tab renames the latest profile without restoring the previous identity', async () => {
   data.clear();
   const first = await load();
   const second = await load();
   assert.equal(first.getState().confirmUsername('BraveExplorer'), null);
-  assert.ok(second.getState().confirmUsername('DifferentExplorer'));
+  assert.equal(second.getState().confirmUsername('DifferentExplorer'), null);
   second.getState().addPoints(10);
   const reloaded = await load();
-  assert.deepEqual(reloaded.getState().player, { username: 'BraveExplorer', score: 10 });
+  assert.deepEqual(reloaded.getState().player, { username: 'DifferentExplorer', score: 10 });
   assert.equal(reloaded.getState().players.length, 1);
 });
 

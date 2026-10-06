@@ -211,3 +211,9 @@ button {
 .username-modal #username-error { color: #ad273d; margin: 0; }
 .username-modal .btn { margin: 4px 0 8px; background: var(--green-dark); }
 .username-lock-note { text-align: center; }
+
+
+.drawer-profile { display: grid; gap: 8px; padding: 14px; margin-bottom: 16px; border-radius: 14px; background: #f0f9f3; color: var(--ink); }
+.drawer-profile-label { font-size: .8rem; color: var(--ink-soft); }
+.drawer-username { overflow-wrap: anywhere; color: var(--green-dark); }
+.drawer-username-edit { justify-self: start; padding: 6px 0; border: 0; background: transparent; color: var(--green-dark); font: inherit; font-size: .85rem; font-weight: 700; text-decoration: underline; cursor: pointer; }
