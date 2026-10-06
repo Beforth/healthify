@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Billboard } from '@react-three/drei';
-import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 
 interface HotspotProps {
@@ -48,6 +48,10 @@ function getGlowTexture() {
  * one is unmistakably the thing the card below is talking about.
  */
 export default function Hotspot({ id, position, color, active, onSelect, scale = 1 }: HotspotProps) {
+  // On a phone the whole canvas is a third as wide, so the same dot is a third as easy to
+  // spot and to hit. Narrow canvases get a clearly bigger dot, with a bigger tap target.
+  const canvasWidth = useThree((state) => state.size.width);
+  const boost = canvasWidth < 520 ? 1.6 : 1;
   const isActive = active === id;
   const isDimmed = active !== null && !isActive;
   const ripple = useRef<THREE.Mesh>(null);
@@ -67,10 +71,10 @@ export default function Hotspot({ id, position, color, active, onSelect, scale =
 
     if (ripple.current) {
       // the ripple is the "untouched, tap me" signal — it stops once opened
-      const s = 1 + phase * 1.35;
+      const s = 1 + phase * (boost > 1 ? 1.9 : 1.35);
       ripple.current.scale.set(s, s, 1);
       const mat = ripple.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = isActive ? 0 : (1 - phase) * (isDimmed ? 0.08 : 0.3);
+      mat.opacity = isActive ? 0 : (1 - phase) * (isDimmed ? 0.08 : 0.3) * (boost > 1 ? 1.8 : 1);
     }
 
     if (glow.current) {
@@ -123,14 +127,14 @@ export default function Hotspot({ id, position, color, active, onSelect, scale =
     // Sitting exactly on a curved surface, a marker at a grazing angle gets half
     // buried by its own geometry and simply vanishes near the silhouette — and a
     // marker a child cannot see is a marker they cannot tap.
-    <Billboard position={position} scale={scale} renderOrder={10}>
+    <Billboard position={position} scale={scale * boost} renderOrder={10}>
       <group onClick={pick} onPointerOver={enter} onPointerOut={leave}>
         {/* Invisible, generously sized tap target. Small fingers on a phone miss a
             12px dot, so the thing you can hit is far bigger than the thing you see.
             It has to be transparent rather than visible={false} — an invisible mesh
             is skipped by the raycaster and would never receive the tap. */}
         <mesh>
-          <circleGeometry args={[0.38, 16]} />
+          <circleGeometry args={[canvasWidth < 520 ? 0.5 : 0.38, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
         </mesh>
 
