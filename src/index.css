@@ -363,6 +363,9 @@ button {
   .game-screen canvas {
     touch-action: pan-y !important;
   }
+  .screen .capture-touch canvas {
+    touch-action: none !important;
+  }
   .food-grid {
     touch-action: pan-y !important;
   }

@@ -14,6 +14,12 @@ interface HotspotProps {
   scale?: number;
 }
 
+/** A marker's on-screen size, as a multiple of its drawn size once every parent scale is
+ *  divided out. Fixed, so it no longer depends on the food's own scale or how far the fit
+ *  zoomed — the per-food `scale` prop is now only the starting value. */
+const WORLD_SIZE = 1.8;
+const WORLD_SIZE_NARROW = 1.6;
+
 /** One soft radial-gradient disc, shared by every marker and simply tinted per
  *  marker. A painted falloff reads as a glow; a hard-edged ring reads as a
  *  stray circle sitting on the food, which is what the first pass looked like. */
@@ -50,42 +56,50 @@ function getGlowTexture() {
 export default function Hotspot({ id, position, color, active, onSelect, scale = 1 }: HotspotProps) {
   // On a phone the whole canvas is a third as wide, so the same dot is a third as easy to
   // spot and to hit. Narrow canvases get a clearly bigger dot, with a bigger tap target.
-  const canvasWidth = useThree((state) => state.size.width);
-  const boost = canvasWidth < 520 ? 1.35 : 1;
   const isActive = active === id;
   const isDimmed = active !== null && !isActive;
   const ripple = useRef<THREE.Mesh>(null);
   const glow = useRef<THREE.Mesh>(null);
   const body = useRef<THREE.Group>(null);
   const halo = useRef<THREE.Mesh>(null);
+  const billboard = useRef<THREE.Group>(null);
+  const worldScale = useMemo(() => new THREE.Vector3(), []);
   const [hovered, setHovered] = useState(false);
 
   const tex = useMemo(() => getGlowTexture(), []);
   // a slightly lighter shade of the marker colour, for the bead's top highlight
   const tint = useMemo(() => new THREE.Color(color).lerp(new THREE.Color('#ffffff'), 0.45), [color]);
 
+  const narrow = useThree((state) => state.size.width < 500);
+
   useFrame((state, delta) => {
+    // The markers sit inside scaled groups (per-food scale × FitScale), so a small cut piece
+    // that gets zoomed to fill the panel would zoom its dots too. Cap their on-screen size.
+    const bb = billboard.current;
+    if (bb?.parent) {
+      bb.parent.getWorldScale(worldScale);
+      bb.scale.setScalar((narrow ? WORLD_SIZE_NARROW : WORLD_SIZE) / Math.max(worldScale.x, 1e-3));
+    }
     const t = state.clock.elapsedTime;
     // stagger by position so the markers do not all breathe in lockstep
     const phase = (t * 0.62 + position[1] * 0.3 + position[2] * 0.17) % 1;
 
     if (ripple.current) {
       // the ripple is the "untouched, tap me" signal — it stops once opened
-      const s = 1 + phase * (boost > 1 ? 1.9 : 1.35);
+      const s = 1 + phase * 1.35;
       ripple.current.scale.set(s, s, 1);
       const mat = ripple.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = isActive ? 0 : (1 - phase) * (isDimmed ? 0.08 : 0.3) * (boost > 1 ? 1.8 : 1);
+      mat.opacity = isActive ? 0 : (1 - phase) * (isDimmed ? 0.08 : 0.3);
     }
 
     if (glow.current) {
-      const target = isActive ? 1.55 : hovered ? 1.2 : 1 + Math.sin(t * 2.2) * 0.06;
+      const target = isActive ? 1.4 : hovered ? 1.15 : 1 + Math.sin(t * 2.2) * 0.06;
       glow.current.scale.setScalar(THREE.MathUtils.damp(glow.current.scale.x, target, 10, delta));
       const mat = glow.current.material as THREE.MeshBasicMaterial;
       mat.opacity = THREE.MathUtils.damp(mat.opacity, isActive ? 0.95 : isDimmed ? 0.12 : 0.42, 10, delta);
     }
 
     if (halo.current) {
-      // a second, slowly turning ring that only the open marker wears
       halo.current.rotation.z += delta * 0.9;
       const mat = halo.current.material as THREE.MeshBasicMaterial;
       mat.opacity = THREE.MathUtils.damp(mat.opacity, isActive ? 0.9 : 0, 12, delta);
@@ -94,9 +108,9 @@ export default function Hotspot({ id, position, color, active, onSelect, scale =
     }
 
     if (body.current) {
-      const target = isActive ? 1.42 : hovered ? 1.18 : isDimmed ? 0.78 : 1;
+      const target = isActive ? 1.35 : hovered ? 1.14 : isDimmed ? 0.8 : 1;
       body.current.scale.setScalar(THREE.MathUtils.damp(body.current.scale.x, target, 12, delta));
-      const fade = isDimmed ? 0.4 : 1;
+      const fade = isDimmed ? 0.65 : 1;
       body.current.traverse((o) => {
         const mat = (o as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
         if (!mat || mat.opacity === undefined) return;
@@ -123,23 +137,16 @@ export default function Hotspot({ id, position, color, active, onSelect, scale =
   };
 
   return (
-    // renderOrder + depthTest:false keeps every marker drawn on top of the food.
-    // Sitting exactly on a curved surface, a marker at a grazing angle gets half
-    // buried by its own geometry and simply vanishes near the silhouette — and a
-    // marker a child cannot see is a marker they cannot tap.
-    <Billboard position={position} scale={scale * boost} renderOrder={10}>
+    <Billboard ref={billboard} position={position} scale={scale} renderOrder={10}>
       <group onClick={pick} onPointerOver={enter} onPointerOut={leave}>
-        {/* Invisible, generously sized tap target. Small fingers on a phone miss a
-            12px dot, so the thing you can hit is far bigger than the thing you see.
-            It has to be transparent rather than visible={false} — an invisible mesh
-            is skipped by the raycaster and would never receive the tap. */}
-        <mesh>
-          <circleGeometry args={[canvasWidth < 520 ? 0.5 : 0.38, 16]} />
+        {/* Generously sized tap target */}
+        <mesh userData={{ isHotspot: true }}>
+          <circleGeometry args={[0.26, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
         </mesh>
 
-        <mesh ref={glow} position={[0, 0, -0.002]}>
-          <planeGeometry args={[0.5, 0.5]} />
+        <mesh ref={glow} position={[0, 0, -0.002]} userData={{ isHotspot: true }}>
+          <planeGeometry args={[0.28, 0.28]} />
           <meshBasicMaterial
             map={tex}
             color={color}
@@ -150,45 +157,46 @@ export default function Hotspot({ id, position, color, active, onSelect, scale =
           />
         </mesh>
 
-        <mesh ref={ripple} position={[0, 0, -0.001]}>
-          <ringGeometry args={[0.16, 0.185, 40]} />
+        <mesh ref={ripple} position={[0, 0, -0.001]} userData={{ isHotspot: true }}>
+          <ringGeometry args={[0.09, 0.108, 36]} />
           <meshBasicMaterial color={color} transparent opacity={0} depthWrite={false} depthTest={false} />
         </mesh>
 
-        <mesh ref={halo}>
-          <ringGeometry args={[0.2, 0.235, 4, 1, 0, Math.PI * 2]} />
+        <mesh ref={halo} userData={{ isHotspot: true }}>
+          <ringGeometry args={[0.115, 0.138, 4, 1, 0, Math.PI * 2]} />
           <meshBasicMaterial color="#ffffff" transparent opacity={0} depthWrite={false} depthTest={false} />
         </mesh>
 
         <group ref={body}>
-          {/* a soft drop shadow so the bead reads as sitting above the food */}
-          <mesh position={[0, -0.016, 0]} userData={{ baseOpacity: 0.22 }}>
-            <circleGeometry args={[0.166, 28]} />
+          {/* soft drop shadow */}
+          <mesh position={[0, -0.01, 0]} userData={{ isHotspot: true, baseOpacity: 0.22 }}>
+            <circleGeometry args={[0.098, 24]} />
             <meshBasicMaterial color="#0d3a26" transparent opacity={0.22} depthWrite={false} depthTest={false} />
           </mesh>
-          {/* white collar — what makes the bead legible on dark chocolate and pale flesh alike */}
-          <mesh position={[0, 0, 0.001]}>
-            <circleGeometry args={[0.163, 32]} />
+          {/* white collar */}
+          <mesh position={[0, 0, 0.001]} userData={{ isHotspot: true }}>
+            <circleGeometry args={[0.095, 28]} />
             <meshBasicMaterial color="#ffffff" transparent opacity={1} depthWrite={false} depthTest={false} />
           </mesh>
-          <mesh position={[0, 0, 0.002]}>
-            <circleGeometry args={[0.128, 32]} />
+          {/* colored bead */}
+          <mesh position={[0, 0, 0.002]} userData={{ isHotspot: true }}>
+            <circleGeometry args={[0.076, 28]} />
             <meshBasicMaterial color={color} transparent opacity={1} depthWrite={false} depthTest={false} />
           </mesh>
-          {/* glossy top light, the thing that turns a flat disc into a bead */}
-          <mesh position={[-0.036, 0.046, 0.003]} scale={[1, 0.68, 1]} userData={{ baseOpacity: 0.55 }}>
-            <circleGeometry args={[0.06, 20]} />
+          {/* glossy top light */}
+          <mesh position={[-0.02, 0.026, 0.003]} scale={[1, 0.68, 1]} userData={{ isHotspot: true, baseOpacity: 0.55 }}>
+            <circleGeometry args={[0.035, 16]} />
             <meshBasicMaterial color={tint} transparent opacity={0.55} depthWrite={false} depthTest={false} />
           </mesh>
 
-          {/* "+" while closed, "–" once open: the invitation, then the way back out */}
-          <mesh position={[0, 0, 0.004]}>
-            <planeGeometry args={[0.108, 0.028]} />
+          {/* "+" while closed, "–" once open */}
+          <mesh position={[0, 0, 0.004]} userData={{ isHotspot: true }}>
+            <planeGeometry args={[0.065, 0.018]} />
             <meshBasicMaterial color="#ffffff" transparent opacity={1} depthWrite={false} depthTest={false} />
           </mesh>
           {!isActive && (
-            <mesh position={[0, 0, 0.004]} rotation={[0, 0, Math.PI / 2]}>
-              <planeGeometry args={[0.108, 0.028]} />
+            <mesh position={[0, 0, 0.004]} rotation={[0, 0, Math.PI / 2]} userData={{ isHotspot: true }}>
+              <planeGeometry args={[0.065, 0.018]} />
               <meshBasicMaterial color="#ffffff" transparent opacity={1} depthWrite={false} depthTest={false} />
             </mesh>
           )}

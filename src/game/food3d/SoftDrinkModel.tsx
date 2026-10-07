@@ -12,7 +12,8 @@ const SCALE = 1.6;
 /** The scan's own top edge, where a can's lid sits. The can is a unit tall with
  *  its origin in the middle, so the lid belongs a hair under half a unit up. */
 const CAN_TOP = 0.5;
-const LID_RADIUS = 0.2;
+/** The scan's top rim measures ~0.257 across; anything smaller leaves the can's open top showing round the lid. */
+const LID_RADIUS = 0.262;
 
 /** Sampled off the scan's bare silver rim. The can is shown whole, so there is no
  *  inside to invent — the only thing added is the lid, and that is built from
@@ -48,13 +49,18 @@ function CanLid({ openRef }: { openRef: MutableRefObject<number> }) {
 
   return (
     <group position={[0, CAN_TOP, 0]}>
-      {/* the disc, sunk very slightly into the can's rim */}
-      <mesh position={[0, -LID_RADIUS * 0.06, 0]}>
-        <cylinderGeometry args={[LID_RADIUS, LID_RADIUS, 0.008, 40]} />
+      {/* the disc, thick enough to stand proud of the rim and seal the whole top */}
+      <mesh position={[0, 0, 0]}>
+        <cylinderGeometry args={[LID_RADIUS, LID_RADIUS, 0.02, 48]} />
         <meshStandardMaterial color={LID_SILVER} roughness={0.42} metalness={0.6} />
       </mesh>
+      {/* the rolled seam round the edge where lid and can are crimped together */}
+      <mesh position={[0, 0.006, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[LID_RADIUS - 0.008, 0.012, 10, 48]} />
+        <meshStandardMaterial color={LID_RING} roughness={0.4} metalness={0.7} />
+      </mesh>
       {/* the ring scored round where the tab was pressed in */}
-      <mesh position={[0, 0.001, 0]}>
+      <mesh position={[0, 0.0105, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[LID_RADIUS * 0.78, LID_RADIUS * 0.84, 40]} />
         <meshStandardMaterial
           color={LID_RING}
@@ -64,7 +70,7 @@ function CanLid({ openRef }: { openRef: MutableRefObject<number> }) {
         />
       </mesh>
       {/* the tab, hinged at its front edge and standing up as it opens */}
-      <group ref={pivot} position={[0, 0.004, LID_RADIUS * 0.3]}>
+      <group ref={pivot} position={[0, 0.013, LID_RADIUS * 0.3]}>
         <mesh position={[0, 0, -LID_RADIUS * 0.3]}>
           <boxGeometry args={[LID_RADIUS * 0.62, 0.006, LID_RADIUS * 0.56]} />
           <meshStandardMaterial color={TAB_COLOUR} roughness={0.38} metalness={0.6} />

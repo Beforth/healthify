@@ -14,6 +14,8 @@ interface FoodCanvasProps {
    *  page (so a thumb on the model can still scroll), spins sideways only, and
    *  stops the mouse wheel from zooming instead of scrolling. */
   scrollFriendly?: boolean;
+  /** The canvas owns every touch (e.g. dragging the knife), so the page cannot scroll from it. */
+  captureTouch?: boolean;
 }
 
 /** The camera's resting polar angle, from its position and orbit target. */
@@ -130,6 +132,7 @@ export default function FoodCanvas({
   controlsEnabled = true,
   showPedestal = false,
   scrollFriendly = false,
+  captureTouch = false,
 }: FoodCanvasProps) {
   // Auto-rotate fights a hand-drag if it keeps nudging the camera mid-gesture —
   // pause it for as long as the user is actually holding the drag.
@@ -145,10 +148,10 @@ export default function FoodCanvas({
     'ontouchstart' in window ||
     navigator.maxTouchPoints > 0
   );
-  const allowPageScroll = scrollFriendly || isTouchDevice;
+  const allowPageScroll = !captureTouch && (scrollFriendly || isTouchDevice);
 
   return (
-    <div style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: allowPageScroll ? 'pan-y' : 'none' }}>
+    <div className={captureTouch ? 'capture-touch' : undefined} style={{ width: '100%', maxWidth: width, height, margin: '0 auto', touchAction: allowPageScroll ? 'pan-y' : 'none' }}>
       <Canvas
         camera={{ position: cameraPos, fov: 46 }}
         dpr={[1, 1.5]}

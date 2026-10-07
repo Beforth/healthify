@@ -3,9 +3,9 @@ import { usePlayerStore } from '../store/playerStore';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Star, Leaf, Candy, Search, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Star, Leaf, Candy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FOODS } from '../data/nutritionData';
-import { nextRequiredCategory, useGameStore } from '../store/gameStore';
+import { useGameStore } from '../store/gameStore';
 import Breadcrumbs from '../components/Breadcrumbs';
 import FoodThumbnail3D from '../game/food3d/FoodThumbnail3D';
 import { isTouchOnly } from '../lib/touch';
@@ -18,13 +18,11 @@ export default function FoodSelect() {
   const touch = isTouchOnly() || (typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 768));
   const navigate = useNavigate();
   const score = usePlayerStore((s) => s.player.score);
-  const lastCategoryPlayed = useGameStore((s) => s.lastCategoryPlayed);
   const selectFood = useGameStore((s) => s.selectFood);
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'healthy' | 'junk'>('all');
   const [page, setPage] = useState(0);
 
-  const required = nextRequiredCategory(lastCategoryPlayed);
   const visibleFoods = FOODS.filter((f) => {
     const matchesQuery = f.name.toLowerCase().includes(query.trim().toLowerCase());
     const matchesCategory = categoryFilter === 'all' || f.category === categoryFilter;
@@ -89,17 +87,7 @@ export default function FoodSelect() {
           gap: 6,
         }}
       >
-        {required === null ? (
-          'Any food — healthy or junk!'
-        ) : required === 'healthy' ? (
-          <>
-            <Leaf size={16} color="var(--green-dark)" /> Time to pick something healthy!
-          </>
-        ) : (
-          <>
-            <Candy size={16} color="#d9534f" /> Now try a junk food!
-          </>
-        )}
+        Any food — healthy or junk!
       </p>
 
       {/* Search Input */}
@@ -225,25 +213,22 @@ export default function FoodSelect() {
           </p>
         )}
         {pageItems.map((food, i) => {
-          const locked = required !== null && food.category !== required;
           return (
             <motion.button
               key={food.id}
               className="card"
               data-tour={i === 0 ? 'food-card-0' : undefined}
-              disabled={locked}
               initial={false}
-              animate={{ y: 0, opacity: locked ? 0.42 : 1 }}
-              whileTap={locked || touch ? undefined : { scale: 0.95 }}
-              whileHover={locked || touch ? undefined : { y: -5 }}
+              animate={{ y: 0, opacity: 1 }}
+              whileTap={touch ? undefined : { scale: 0.95 }}
+              whileHover={touch ? undefined : { y: -5 }}
               onClick={() => {
-                if (locked) return;
                 preloadForGame(food.id); // ensure drei cache is warm before navigate
                 selectFood(food.id, food.category);
                 navigate(`/play/${food.id}`);
               }}
               onMouseEnter={() => {
-                if (!locked) preloadForGame(food.id); // desktop: preload on hover
+                preloadForGame(food.id); // desktop: preload on hover
               }}
               style={{
                 position: 'relative',
@@ -252,38 +237,16 @@ export default function FoodSelect() {
                 alignItems: 'center',
                 gap: 8,
                 padding: '20px 14px 16px',
-                cursor: locked ? 'not-allowed' : 'pointer',
+                cursor: 'pointer',
                 border: '1.5px solid rgba(46, 204, 113, 0.16)',
                 borderRadius: 22,
                 background: '#ffffff',
-                boxShadow: locked ? 'none' : '0 6px 18px rgba(0,0,0,0.04)',
+                boxShadow: '0 6px 18px rgba(0,0,0,0.04)',
                 overflow: 'hidden',
                 touchAction: 'pan-y',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              {locked && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 10,
-                    right: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    background: 'rgba(30, 41, 59, 0.75)',
-                    backdropFilter: 'blur(4px)',
-                    color: '#ffffff',
-                    fontSize: '0.68rem',
-                    fontWeight: 800,
-                    padding: '3px 8px',
-                    borderRadius: 999,
-                    zIndex: 2,
-                  }}
-                >
-                  <Lock size={11} /> {required === 'healthy' ? 'Healthy next' : 'Treat next'}
-                </div>
-              )}
               <FoodThumbnail3D foodId={food.id} size={100} scale={0.85} />
               <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#134e2c', marginTop: 2 }}>{food.name}</div>
               <div

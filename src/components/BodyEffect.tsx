@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, BatteryLow, Frown, Timer, Smile, Sparkles } from 'lucide-react';
 import {
@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import type { FoodCategory, FoodItem } from '../data/nutritionData';
 import { crashes, energyCurve } from '../lib/energyCurve';
+import FoodIcon from './FoodIcon';
 
 /**
  * "So what?" — the part of the brief the game was missing.
@@ -108,6 +109,79 @@ function ChartTooltip({ active, payload, line }: TooltipContentProps & { line: s
   );
 }
 
+
+/** How the line's tip is eased while it draws — close to the chart's own ease-in-out. */
+const ease = (t: number) => t * t * (3 - 2 * t);
+
+/**
+ * The food's own art rides the tip of the line while it draws.
+ * Moved by hand each frame (no re-render): it follows the real SVG path the chart drew, so it
+ * stays glued to the line whatever the curve looks like.
+ */
+function LineRider({
+  wrap,
+  foodId,
+  duration,
+}: {
+  wrap: React.RefObject<HTMLDivElement | null>;
+  foodId?: string;
+  duration: number;
+}) {
+  const rider = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let raf = 0;
+    let start: number | null = null;
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      const path = wrap.current?.querySelector<SVGPathElement>('.recharts-area-curve');
+      const el = rider.current;
+      if (!path || !el) return;
+      const total = path.getTotalLength();
+      if (!total) return;
+      if (start === null) start = now;
+      const t = Math.min((now - start) / (duration * 1000), 1);
+      const x0 = path.getPointAtLength(0).x;
+      const x1 = path.getPointAtLength(total).x;
+      const x = x0 + (x1 - x0) * ease(t);
+      // the curve only ever moves right, so the point at this x is found by bisection
+      let lo = 0;
+      let hi = total;
+      for (let i = 0; i < 18; i++) {
+        const mid = (lo + hi) / 2;
+        if (path.getPointAtLength(mid).x < x) lo = mid;
+        else hi = mid;
+      }
+      const p = path.getPointAtLength(hi);
+      el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+      el.style.opacity = '1';
+      if (t >= 1) cancelAnimationFrame(raf);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [wrap, duration]);
+
+  return (
+    <div
+      ref={rider}
+      style={{ position: 'absolute', left: 0, top: 0, opacity: 0, pointerEvents: 'none', willChange: 'transform' }}
+    >
+      <motion.div
+        animate={{ y: [0, -3, 0] }}
+        transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute',
+          left: -22,
+          top: -22,
+          filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.3))',
+        }}
+      >
+        {foodId ? <FoodIcon id={foodId} size={44} /> : null}
+      </motion.div>
+    </div>
+  );
+}
+
 /** "a donut" / "an apple" — the heading reads as broken English without it. */
 function article(name: string) {
   return /^[aeiou]/i.test(name) ? 'an' : 'a';
@@ -135,6 +209,7 @@ export default function BodyEffect({
   const edge = junk ? '#fecaca' : '#bbf7d0';
 
   const DRAW = 1.4;
+  const chartWrap = useRef<HTMLDivElement>(null);
 
   return (
     <motion.div
@@ -175,6 +250,7 @@ export default function BodyEffect({
         Your energy for the hour after eating it
       </div>
 
+      <div ref={chartWrap} style={{ position: 'relative' }}>
       <ResponsiveContainer width="100%" height={140}>
         <AreaChart data={data} margin={{ top: 12, right: 8, left: 8, bottom: 4 }}>
           <defs>
@@ -210,6 +286,8 @@ export default function BodyEffect({
           />
         </AreaChart>
       </ResponsiveContainer>
+      <LineRider wrap={chartWrap} foodId={food?.id} duration={DRAW} />
+      </div>
 
       <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
         {beats.map((b, i) => (

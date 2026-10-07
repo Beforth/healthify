@@ -106,6 +106,7 @@ export default function KeepInView({ children }: { children: ReactNode }) {
     node.traverse((child) => {
       const mesh = child as THREE.Mesh;
       if (!mesh.isMesh || !mesh.visible) return;
+      if (mesh.userData?.isHotspot || mesh.parent?.type === 'Billboard' || (mesh.material as THREE.Material)?.depthTest === false) return;
       for (const p of extremePoints(mesh.geometry)) {
         point.copy(p).applyMatrix4(mesh.matrixWorld).project(probe);
         if (point.z > 1) continue; // behind the camera
@@ -123,15 +124,6 @@ export default function KeepInView({ children }: { children: ReactNode }) {
     });
     if (reach === 0) return;
 
-    // `reach` > 1 means the furthest point is past the edge, and the scale that
-    // just fits is exactly the current one over that overshoot. It is applied
-    // immediately rather than eased toward: a damped correction takes a quarter
-    // of a second to land, and the bounce at the end of a cut is over in less
-    // than that — so an eased one loses the race and a half is seen drifting
-    // off the edge. `reach` is re-measured from the current pose every frame, so
-    // the single correction lands on the size that fits and costs one frame.
-    // Growing back stays slow: it only happens once the transient has passed,
-    // and the food eases up to its natural size rather than springing at it.
     const target = Math.min(1, shrink.current / reach);
     shrink.current = reach > 1 ? target : THREE.MathUtils.damp(shrink.current, 1, 2.5, delta);
     node.scale.setScalar(shrink.current);

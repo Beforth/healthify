@@ -410,87 +410,82 @@ export default function CrossSectionShell({
             key={`mobile-sheet-${activeFact.id}`}
             role="dialog"
             aria-label={`${activeFact.name} nutrition information`}
-            initial={{ y: 120, opacity: 0, scale: 0.94 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 100, opacity: 0, scale: 0.94, transition: { duration: 0.18, ease: 'easeIn' } }}
-            transition={{ type: 'spring', damping: 25, stiffness: 320 }}
+            initial={{ y: 120, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0, transition: { duration: 0.18, ease: 'easeIn' } }}
+            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+            // the grab bar is real: swipe the sheet down to put it away
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 50 || info.velocity.y > 400) setActive(null);
+            }}
             style={{
               position: 'fixed',
-              bottom: 'max(14px, env(safe-area-inset-bottom, 14px))',
+              bottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
               left: 12,
               right: 12,
               maxWidth: 440,
               margin: '0 auto',
               zIndex: 120,
               background: '#ffffff',
-              borderRadius: 22,
-              border: `2px solid ${activeFact.color}`,
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(27, 105, 70, 0.12)',
-              padding: '14px 16px 14px',
+              borderRadius: 24,
+              boxShadow: '0 18px 44px rgba(0, 0, 0, 0.2), 0 0 0 1.5px rgba(0,0,0,0.04)',
+              padding: '10px 16px 16px',
               textAlign: 'left',
               boxSizing: 'border-box',
+              overflow: 'hidden',
+              touchAction: 'none',
             }}
           >
-            {/* Grab indicator */}
-            <div
-              style={{
-                width: 36,
-                height: 4,
-                borderRadius: 2,
-                background: '#d5e4dc',
-                margin: '0 auto 8px',
-              }}
-            />
+            {/* the fact's own colour, so the sheet reads as belonging to its dot */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 5, background: activeFact.color }} />
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <motion.div
-                  animate={{ rotate: [0, -6, 6, 0] }}
-                  transition={{ duration: 2.2, repeat: Infinity }}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    background: 'var(--green-light)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                  }}
-                >
-                  {activeFact.icon}
-                </motion.div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 800, fontSize: '1.02rem', color: 'var(--green-dark)' }}>
-                      {activeFact.name}
-                    </span>
-                    {activeFact.tag && (
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          background: '#dff5e6',
-                          color: 'var(--green-dark)',
-                        }}
-                      >
-                        {activeFact.tag}
-                      </span>
-                    )}
-                  </div>
-                </div>
+            <div style={{ width: 38, height: 4, borderRadius: 2, background: '#d5e4dc', margin: '4px auto 10px' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 14,
+                  background: `${activeFact.color}26`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {activeFact.icon}
               </div>
-
-              {/* Dismiss button */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: '1.08rem', lineHeight: 1.2, color: 'var(--green-dark)' }}>
+                  {activeFact.name}
+                </div>
+                {activeFact.tag && (
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 4,
+                      fontSize: '0.74rem',
+                      fontWeight: 800,
+                      padding: '2px 9px',
+                      borderRadius: 999,
+                      background: `${activeFact.color}26`,
+                      color: 'var(--green-dark)',
+                    }}
+                  >
+                    {activeFact.tag}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setActive(null)}
                 aria-label="Close details"
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: 40,
+                  height: 40,
                   borderRadius: '50%',
                   background: 'rgba(0, 0, 0, 0.06)',
                   border: 'none',
@@ -503,19 +498,11 @@ export default function CrossSectionShell({
                   padding: 0,
                 }}
               >
-                <X size={17} />
+                <X size={18} />
               </button>
             </div>
 
-            <div
-              style={{
-                fontSize: '0.92rem',
-                color: 'var(--ink)',
-                marginTop: 8,
-                lineHeight: 1.45,
-                fontWeight: 500,
-              }}
-            >
+            <div style={{ fontSize: '0.96rem', color: 'var(--ink)', marginTop: 12, lineHeight: 1.5, fontWeight: 500 }}>
               {activeFact.fact}
             </div>
           </motion.div>

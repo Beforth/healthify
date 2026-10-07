@@ -173,14 +173,31 @@ export default function Knife3D({
   };
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (disabled || e.pointerType === 'touch') return;
+    if (disabled) return;
     e.stopPropagation();
     startDrag(e.nativeEvent.clientX, e.nativeEvent.clientY);
   };
 
+  const exitProgress = useRef(0);
+  const [fullyExited, setFullyExited] = useState(false);
+
   useFrame((state, delta) => {
     const g = group.current;
     if (!g) return;
+
+    if (disabled) {
+      exitProgress.current = Math.min(1, exitProgress.current + delta * 3.5);
+      const ep = exitProgress.current;
+      // Animate knife sliding down and to the right off the board, scaling down
+      g.position.y -= delta * 5.2;
+      g.position.x += delta * 3.0;
+      g.rotation.z += delta * 0.9;
+      g.scale.setScalar(Math.max(0, 1 - ep));
+      if (ep >= 1 && !fullyExited) {
+        setFullyExited(true);
+      }
+      return;
+    }
 
     if (dragging.current) {
       g.position.x = posTarget.current.x;
@@ -220,9 +237,11 @@ export default function Knife3D({
     });
   });
 
+  if (fullyExited) return null;
+
   return (
     <>
-      <DownwardGuideArrow opacity={guideOpacity} />
+      <DownwardGuideArrow opacity={disabled ? 0 : guideOpacity} />
 
       {/* Invisible broad grab plane covering the whole canvas — forgiving so kids don't need
           to hit the thin blade exactly. Once the cut is done there's nothing left to drag, so

@@ -9,6 +9,9 @@ import KeepInView from './KeepInView';
  *  can be sized however it wants without a shared reference. */
 export const DEFAULT_TARGET = 3.1;
 
+/** How much wider than the whole food a live-fitted pair is allowed to get before it shrinks. */
+const PARTING_ROOM = 1.3;
+
 /** Where a live-fitted food's middle sits vertically: the height the canvas camera aims at. */
 const LIVE_CENTER_Y = 0.35;
 
@@ -27,6 +30,7 @@ function measureLocalBounds(
   node.traverse((child) => {
     const mesh = child as THREE.Mesh;
     if (!mesh.isMesh || !mesh.geometry) return;
+    if (mesh.userData?.isHotspot || mesh.parent?.type === 'Billboard' || (mesh.material as THREE.Material)?.depthTest === false) return;
     mesh.geometry.computeBoundingBox();
     if (!geometryHasValidBounds(mesh.geometry)) return;
     local.copy(invWorld).multiply(child.matrixWorld);
@@ -67,7 +71,7 @@ export default function FitScale({
   // A tall, narrow canvas (a phone held upright) sees far less sideways than a laptop
   // does, so a food fitted to the same size spills out of both sides of it.
   const aspect = useThree((state) => state.size.width / Math.max(state.size.height, 1));
-  const width = Math.min(1, aspect / 1.15);
+  const width = Math.max(0.85, Math.min(1, aspect / 0.95));
   const contentRef = useRef<THREE.Group>(null);
   const fittedRef = useRef(false);
   const [fit, setFit] = useState({ scale: 1, offsetY: 0 });
@@ -108,20 +112,24 @@ export default function FitScale({
       // measured in the content's own space, so the current fit never skews it
       const bounds = measureLocalBounds(node);
       if (bounds) {
-        // what the camera sees is width and height; how far a half reaches back is nearly
-        // free, and counting it would shrink every long, thin food to a speck
+        // what the camera sees is width and height
         const scale = (target * width) / Math.max(bounds.screen, bounds.max * 0.6);
         const first = st.scale === 0;
-        st.scale = scale;
-        st.x = -bounds.cx * scale;
-        st.z = -bounds.cz * scale;
+        // The whole food starts a little small, leaving room for the halves to part, then only
+        // ever shrinks if they end up wider than that. Fitting the whole food edge to edge made
+        // every cut shrink and shift the food; this keeps its size steady through the cut.
+        st.scale = first ? scale / PARTING_ROOM : Math.min(st.scale, scale);
+        st.x = -bounds.cx * st.scale;
+        // depth is fixed at the first (whole-food) measurement: the halves swing about y as
+        // they part, which drags the centroid back and made the cut food slide away from the knife
+        if (first) st.z = -bounds.cz * st.scale;
         // no board to stand on: sit the middle of the food on the camera's aim point
-        st.y = groundY === undefined ? LIVE_CENTER_Y - bounds.cy * scale : 0;
+        st.y = groundY === undefined ? LIVE_CENTER_Y - bounds.cy * st.scale : 0;
         if (first) {
-          holder.scale.setScalar(scale);
+          holder.scale.setScalar(st.scale);
           holder.position.set(st.x, st.y, st.z);
         }
-        if (groundY !== undefined) outer.position.y = groundY - bounds.floor * scale;
+        if (groundY !== undefined) outer.position.y = groundY - bounds.floor * st.scale;
       }
     }
     if (st.scale !== 0) {

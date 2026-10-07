@@ -495,7 +495,7 @@ export default function GameScreen() {
                     showPedestal
                     autoRotate={false}
                     controlsEnabled={false}
-                    scrollFriendly={touchOnly}
+                    captureTouch
                   >
                     {/* Only the food spins in place when dragged — the knife and pedestal
                         never move, since the camera itself stays fixed the whole time. */}
@@ -642,27 +642,6 @@ export default function GameScreen() {
 
               <div style={{ marginBottom: 20 }}>
                 {CrossSection ? <CrossSection /> : <FlatCrossSection foodId={food.id} />}
-              </div>
-
-              <div style={{ margin: '16px 0 24px', display: 'flex', justifyContent: 'center' }}>
-                <motion.button
-                  className="btn"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  style={{
-                    background: '#1c6b48',
-                    color: '#ffffff',
-                    borderRadius: 999,
-                    padding: '13px 36px',
-                    fontSize: '1rem',
-                    fontWeight: 800,
-                    boxShadow: '0 8px 22px rgba(28, 107, 72, 0.35)',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => advanceStep('quiz')}
-                >
-                  Answer a Question ➜
-                </motion.button>
               </div>
 
               <div
